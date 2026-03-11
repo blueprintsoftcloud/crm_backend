@@ -132,7 +132,7 @@ export const preCheckout = async (req: Request, res: Response) => {
 export const placeOrder = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { couponId } = req.body as { couponId?: string };
+    const { couponId, buyNowProductId } = req.body as { couponId?: string; buyNowProductId?: string };
 
     const cart = await prisma.cart.findUnique({
       where: { userId },
@@ -147,9 +147,17 @@ export const placeOrder = async (req: Request, res: Response) => {
     if (!address)
       return res.status(400).json({ message: "Delivery address missing" });
 
+    // When Buy Now is used, only process the specified product
+    const eligibleItems = buyNowProductId
+      ? cart.items.filter((i) => i.product.id === buyNowProductId)
+      : cart.items;
+
+    if (eligibleItems.length === 0)
+      return res.status(400).json({ message: "Product not found in cart" });
+
     // Build order items + subtotal
     let subtotal = 0;
-    const orderItems = cart.items.map((item) => {
+    const orderItems = eligibleItems.map((item) => {
       subtotal += item.product.price * item.quantity;
       return {
         productId: item.product.id,
@@ -270,8 +278,8 @@ export const placeOrder = async (req: Request, res: Response) => {
 // POST /api/orders/verify  (authenticated)
 export const verifyPayment = async (req: Request, res: Response) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-      req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, buyNowProductId } =
+      req.body as { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; buyNowProductId?: string };
     const userId = req.user!.id;
 
     const body = `${razorpay_order_id}|${razorpay_payment_id}`;
@@ -316,8 +324,12 @@ export const verifyPayment = async (req: Request, res: Response) => {
         },
       }).catch((e) => logger.warn("PaymentLog create (PAYMENT_SUCCESS) failed", e));
 
-      // Clear cart after successful payment
-      await prisma.cart.deleteMany({ where: { userId } });
+      // Clear only the bought item (Buy Now) or the entire cart (regular checkout)
+      if (buyNowProductId) {
+        await prisma.cartItem.deleteMany({ where: { cart: { userId }, productId: buyNowProductId } });
+      } else {
+        await prisma.cart.deleteMany({ where: { userId } });
+      }
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -389,7 +401,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
 export const placeOrderPOD = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { couponId } = req.body as { couponId?: string };
+    const { couponId, buyNowProductId } = req.body as { couponId?: string; buyNowProductId?: string };
 
     const cart = await prisma.cart.findUnique({
       where: { userId },
@@ -412,8 +424,16 @@ export const placeOrderPOD = async (req: Request, res: Response) => {
         });
     }
 
+    // When Buy Now is used, only process the specified product
+    const eligibleItems = buyNowProductId
+      ? cart.items.filter((i) => i.product.id === buyNowProductId)
+      : cart.items;
+
+    if (eligibleItems.length === 0)
+      return res.status(400).json({ message: "Product not found in cart" });
+
     let subtotal = 0;
-    const orderItems = cart.items.map((item) => {
+    const orderItems = eligibleItems.map((item) => {
       subtotal += item.product.price * item.quantity;
       return {
         productId: item.product.id,
@@ -486,7 +506,12 @@ export const placeOrderPOD = async (req: Request, res: Response) => {
     }
 
     await deductStock(orderItems);
-    await prisma.cart.deleteMany({ where: { userId } });
+    // Clear only the bought item (Buy Now) or the entire cart (regular checkout)
+    if (buyNowProductId) {
+      await prisma.cartItem.deleteMany({ where: { cart: { userId }, productId: buyNowProductId } });
+    } else {
+      await prisma.cart.deleteMany({ where: { userId } });
+    }
 
     // ── Payment Log: POD order placed ────────────────────────────────────
     await prisma.paymentLog.create({

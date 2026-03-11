@@ -193,11 +193,13 @@ export const createAdminUser = async (req: Request, res: Response) => {
       role: string;
     };
 
-    const existed = await prisma.user.findFirst({
-      where: { OR: [{ email }, { phone }] },
-    });
-    if (existed)
-      return res.status(400).json({ Error: "Email or phone already exists." });
+    const emailExisted = await prisma.user.findFirst({ where: { email } });
+    if (emailExisted)
+      return res.status(400).json({ Error: "An account with this email address already exists." });
+
+    const phoneExisted = await prisma.user.findFirst({ where: { phone } });
+    if (phoneExisted)
+      return res.status(400).json({ Error: "An account with this phone number already exists." });
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -223,6 +225,10 @@ export const createAdminUser = async (req: Request, res: Response) => {
     res.json({ message: `User created successfully with role: ${normalizedRole}.` });
   } catch (err: any) {
     logger.error("createAdminUser error", err);
+    if (err?.code === "P2002") {
+      const field = err?.meta?.target?.includes("email") ? "email address" : "phone number";
+      return res.status(400).json({ Error: `An account with this ${field} already exists.` });
+    }
     res
       .status(500)
       .json({ message: "Error in creating user", Error: err.message });

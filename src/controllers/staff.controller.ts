@@ -219,9 +219,14 @@ export const createStaff = async (req: Request, res: Response) => {
       STAFF_PERMISSIONS.includes(p as StaffPermission),
     );
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      res.status(409).json({ message: "A user with this email already exists" });
+    const emailExists = await prisma.user.findFirst({ where: { email } });
+    if (emailExists) {
+      res.status(409).json({ message: "An account with this email address already exists." });
+      return;
+    }
+    const phoneExists = await prisma.user.findFirst({ where: { phone: String(phone) } });
+    if (phoneExists) {
+      res.status(409).json({ message: "An account with this phone number already exists." });
       return;
     }
 
@@ -262,6 +267,11 @@ export const createStaff = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     logger.error("createStaff error", err);
+    if (err?.code === "P2002") {
+      const field = err?.meta?.target?.includes("email") ? "email address" : "phone number";
+      res.status(409).json({ message: `An account with this ${field} already exists.` });
+      return;
+    }
     res.status(500).json({ message: "Error creating staff account" });
   }
 };
@@ -296,11 +306,12 @@ export const updateStaff = async (req: Request, res: Response) => {
   try {
     const managedBy = req.user!.id;
     const { id } = req.params;
-    const { username, email, phone, notes } = req.body as {
+    const { username, email, phone, notes, newPassword } = req.body as {
       username?: string;
       email?: string;
       phone?: string;
       notes?: string;
+      newPassword?: string;
     };
 
     const profile = await prisma.staffProfile.findFirst({
@@ -336,21 +347,34 @@ export const updateStaff = async (req: Request, res: Response) => {
       return;
     }
 
-    const [updatedUser, updatedProfile] = await prisma.$transaction([
-      prisma.user.update({
-        where: { id: profile.userId },
-        data: {
-          ...(username && { username }),
-          ...(email && { email }),
-          ...(phone && { phone: String(phone) }),
-        },
-        select: { id: true, username: true, email: true, phone: true, createdAt: true },
-      }),
-      prisma.staffProfile.update({
-        where: { id: id as string },
-        data: { notes: notes ?? null },
-      }),
-    ]);
+    if (newPassword !== undefined && newPassword !== "") {
+      if (newPassword.length < 6) {
+        res.status(400).json({ message: "Password must be at least 6 characters" });
+        return;
+      }
+    }
+
+    const [updatedUser, updatedProfile] = await prisma.$transaction(async (tx) => {
+      const userUpdateData: Record<string, any> = {
+        ...(username && { username }),
+        ...(email && { email }),
+        ...(phone && { phone: String(phone) }),
+      };
+      if (newPassword && newPassword.length >= 6) {
+        userUpdateData.password = await bcrypt.hash(newPassword, 10);
+      }
+      return [
+        await tx.user.update({
+          where: { id: profile.userId },
+          data: userUpdateData,
+          select: { id: true, username: true, email: true, phone: true, createdAt: true },
+        }),
+        await tx.staffProfile.update({
+          where: { id: id as string },
+          data: { notes: notes ?? null },
+        }),
+      ];
+    });
 
     res.json({
       id: updatedProfile.id,

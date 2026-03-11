@@ -17,11 +17,17 @@ export const signup = async (req: Request, res: Response) => {
   try {
     const { username, email, phone, password } = req.body;
 
-    const duplicate = await prisma.user.findFirst({
-      where: { OR: [{ email }, { phone }] },
-    });
-    if (duplicate) {
-      return res.status(400).json({ Error: "Email or phone already exist" });
+    const emailExists = email
+      ? await prisma.user.findFirst({ where: { email } })
+      : null;
+    if (emailExists) {
+      return res.status(400).json({ Error: "An account with this email address already exists." });
+    }
+    const phoneExists = phone
+      ? await prisma.user.findFirst({ where: { phone: String(phone) } })
+      : null;
+    if (phoneExists) {
+      return res.status(400).json({ Error: "An account with this phone number already exists." });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -64,6 +70,10 @@ export const signup = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     logger.error("signup error", err);
+    if (err?.code === "P2002") {
+      const field = err?.meta?.target?.includes("email") ? "email address" : "phone number";
+      return res.status(400).json({ Error: `An account with this ${field} already exists.` });
+    }
     return res
       .status(500)
       .json({ Error: "Server error", details: err.message });
@@ -381,15 +391,22 @@ export const registerCustomer = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "OTP verification failed. Please try again." });
     }
 
-    // Check for duplicate phone or email
-    const orClauses: Array<{ phone: string } | { email: string }> = [{ phone: phone.trim() }];
-    if (email?.trim()) orClauses.push({ email: email.trim().toLowerCase() });
-    const existing = await prisma.user.findFirst({ where: { OR: orClauses } });
-    if (existing) {
+    // Check for duplicate phone or email — specific per field
+    const phoneExists = await prisma.user.findFirst({ where: { phone: phone.trim() } });
+    if (phoneExists) {
       return res.status(409).json({
-        message: "An account with this phone number or email already exists. Please sign in.",
+        message: "An account with this phone number already exists. Please sign in.",
         code: "DUPLICATE",
       });
+    }
+    if (email?.trim()) {
+      const emailExists = await prisma.user.findFirst({ where: { email: email.trim().toLowerCase() } });
+      if (emailExists) {
+        return res.status(409).json({
+          message: "An account with this email address already exists. Please sign in with a different email.",
+          code: "DUPLICATE",
+        });
+      }
     }
 
     const user = await prisma.user.create({
