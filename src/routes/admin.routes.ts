@@ -16,7 +16,7 @@ import {
 } from "../controllers/admin.controller";
 import { validate } from "../middleware/validate.middleware";
 import { createUserSchema } from "../schemas/user.schema";
-import { getCompanySettings, updateCompanySettings } from "../controllers/companySettings.controller";
+import { getCompanySettings, updateCompanySettings, getHomepageConfig, updateHeroConfig, updateFooterConfig, uploadAdminImage } from "../controllers/companySettings.controller";
 import upload from "../middleware/upload";
 import {
   getTrackedCustomers,
@@ -54,7 +54,15 @@ router.get("/summary", authMiddleware, adminMiddleware, featureGate("REPORTS_ANA
 
 // Company settings — GET is public (invoice pages), PUT requires admin
 router.get("/company-settings", getCompanySettings);
-router.put("/company-settings", authMiddleware, adminMiddleware, upload.single("logo"), updateCompanySettings);
+router.put("/company-settings", authMiddleware, adminMiddleware, upload.fields([{ name: "logo", maxCount: 1 }, { name: "favicon", maxCount: 1 }]), updateCompanySettings);
+
+// Single-image upload utility (hero images, etc.)
+router.post("/upload-image", authMiddleware, adminMiddleware, upload.single("image"), uploadAdminImage);
+
+// Homepage config (hero + footer templates)
+router.get("/homepage-config", authMiddleware, adminMiddleware, getHomepageConfig);
+router.put("/homepage-config/hero", authMiddleware, adminMiddleware, updateHeroConfig);
+router.put("/homepage-config/footer", authMiddleware, adminMiddleware, updateFooterConfig);
 
 // Customer Activity Tracker — admin+superadmin, gated by CUSTOMER_ACTIVITY_TRACKER feature
 router.get("/tracker/customers", authMiddleware, adminMiddleware, featureGate("CUSTOMER_ACTIVITY_TRACKER"), getTrackedCustomers);

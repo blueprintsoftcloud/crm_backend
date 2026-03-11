@@ -3,6 +3,7 @@
 // Types:
 //   DISCOUNT_PANEL — image panels in the discount/offer grid section
 //   CAROUSEL_ITEM  — slides in the "Curated Looks" carousel
+//   PROMO_BANNER   — full-width promotional banner carousel (below hero)
 // Section-level header text (title / subtitle) is stored in AppSetting.
 
 import { Request, Response } from "express";
@@ -11,7 +12,7 @@ import { uploadToCloudinary, deleteFromCloudinary } from "../config/cloudinary";
 import logger from "../utils/logger";
 import { createAuditLog } from "../utils/auditLog";
 
-const VALID_TYPES = ["DISCOUNT_PANEL", "CAROUSEL_ITEM"] as const;
+const VALID_TYPES = ["DISCOUNT_PANEL", "CAROUSEL_ITEM", "PROMO_BANNER"] as const;
 type BannerType = (typeof VALID_TYPES)[number];
 
 // ─── Public endpoints ─────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ export const getPublicBanners = async (req: Request, res: Response) => {
             "HOME_DISCOUNT_TITLE", "HOME_DISCOUNT_SUBTITLE",
             "HOME_CAROUSEL_TITLE", "HOME_CAROUSEL_SUBTITLE",
             "HOME_FEATURED_TITLE", "HOME_FEATURED_SUBTITLE",
+            "HOME_PROMO_TITLE", "HOME_PROMO_SUBTITLE",
           ],
         },
       },
@@ -63,6 +65,10 @@ export const getPublicBanners = async (req: Request, res: Response) => {
         title: headers["HOME_FEATURED_TITLE"] ?? "Featured Collections",
         subtitle: headers["HOME_FEATURED_SUBTITLE"] ?? "",
       },
+      promoSection: {
+        title: headers["HOME_PROMO_TITLE"] ?? "Special Offers",
+        subtitle: headers["HOME_PROMO_SUBTITLE"] ?? "",
+      },
     });
   } catch (err: any) {
     logger.error("getPublicBanners error", err);
@@ -86,6 +92,7 @@ export const getAllBannersAdmin = async (_req: Request, res: Response) => {
               "HOME_DISCOUNT_TITLE", "HOME_DISCOUNT_SUBTITLE",
               "HOME_CAROUSEL_TITLE", "HOME_CAROUSEL_SUBTITLE",
               "HOME_FEATURED_TITLE", "HOME_FEATURED_SUBTITLE",
+              "HOME_PROMO_TITLE", "HOME_PROMO_SUBTITLE",
             ],
           },
         },
@@ -110,6 +117,10 @@ export const getAllBannersAdmin = async (_req: Request, res: Response) => {
       featuredSection: {
         title: headers["HOME_FEATURED_TITLE"] ?? "Featured Collections",
         subtitle: headers["HOME_FEATURED_SUBTITLE"] ?? "",
+      },
+      promoSection: {
+        title: headers["HOME_PROMO_TITLE"] ?? "Special Offers",
+        subtitle: headers["HOME_PROMO_SUBTITLE"] ?? "",
       },
     });
   } catch (err: any) {
@@ -217,6 +228,38 @@ export const updateFeaturedHeader = async (req: Request, res: Response) => {
   }
 };
 
+// PUT /api/home-banners/promo-header   (admin / super-admin)
+export const updatePromoHeader = async (req: Request, res: Response) => {
+  try {
+    const { title, subtitle } = req.body as { title?: string; subtitle?: string };
+    const ops: Promise<unknown>[] = [];
+    if (title !== undefined) {
+      ops.push(
+        prisma.appSetting.upsert({
+          where: { key: "HOME_PROMO_TITLE" },
+          update: { value: title },
+          create: { key: "HOME_PROMO_TITLE", value: title },
+        }),
+      );
+    }
+    if (subtitle !== undefined) {
+      ops.push(
+        prisma.appSetting.upsert({
+          where: { key: "HOME_PROMO_SUBTITLE" },
+          update: { value: subtitle },
+          create: { key: "HOME_PROMO_SUBTITLE", value: subtitle },
+        }),
+      );
+    }
+    await Promise.all(ops);
+    await createAuditLog({ req, action: "UPDATE_HOMEPAGE_PROMO_HEADER", entity: "AppSetting", details: { title, subtitle } });
+    res.json({ message: "Promo banner section header updated", title, subtitle });
+  } catch (err: any) {
+    logger.error("updatePromoHeader error", err);
+    res.status(500).json({ message: "Failed to update header" });
+  }
+};
+
 // GET /api/home-banners/featured-products  (admin / super-admin)
 // Returns ALL products with their isFeatured status so the admin can toggle them.
 export const getFeaturedProducts = async (req: Request, res: Response) => {
@@ -318,7 +361,7 @@ export const createBanner = async (req: Request, res: Response) => {
     const sortOrder = req.body.sortOrder as string | undefined;
 
     if (!type || !VALID_TYPES.includes(type as BannerType)) {
-      return res.status(400).json({ message: "type must be DISCOUNT_PANEL or CAROUSEL_ITEM" });
+      return res.status(400).json({ message: "type must be DISCOUNT_PANEL, CAROUSEL_ITEM, or PROMO_BANNER" });
     }
     if (!title?.trim()) return res.status(400).json({ message: "title is required" });
     if (!req.file) return res.status(400).json({ message: "image file is required" });

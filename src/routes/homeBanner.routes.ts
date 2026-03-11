@@ -5,6 +5,7 @@ import {
   updateDiscountHeader,
   updateCarouselHeader,
   updateFeaturedHeader,
+  updatePromoHeader,
   getFeaturedProducts,
   toggleFeaturedProduct,
   setFeaturedProductOrder,
@@ -13,6 +14,7 @@ import {
   deleteBanner,
   toggleBanner,
 } from "../controllers/homeBanner.controller";
+import { getHomepageConfig } from "../controllers/companySettings.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { adminOrSuperAdmin } from "../middleware/admin.middleware";
 import { featureGate } from "../middleware/featureGate.middleware";
@@ -22,6 +24,7 @@ const router = Router();
 
 // Public — no auth required (used by the home page)
 router.get("/", getPublicBanners);
+router.get("/homepage-config", getHomepageConfig);
 
 // Admin — authenticated + feature-gated
 router.get("/admin", authMiddleware, adminOrSuperAdmin, getAllBannersAdmin);
@@ -45,6 +48,13 @@ router.put(
   adminOrSuperAdmin,
   featureGate("HOMEPAGE_MANAGEMENT"),
   updateFeaturedHeader,
+);
+router.put(
+  "/promo-header",
+  authMiddleware,
+  adminOrSuperAdmin,
+  featureGate("HOMEPAGE_MANAGEMENT"),
+  updatePromoHeader,
 );
 
 // Featured Products management
