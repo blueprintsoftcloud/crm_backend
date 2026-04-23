@@ -104,6 +104,15 @@ app.use("/api/home-banners", homeBannerRoutes);
 // ── Error Handler ─────────────────────────────────────────────────────────────
 app.use(errorHandler);
 
+
+// ── Serve React Frontend ───────────────────────────────────────────────────
+app.use(express.static(path.join(__dirname, "../client")));
+
+// ── React Router Catch-all ─────────────────────────────────────────────────
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../client", "index.html"));
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const startServer = async () => {
   try {
