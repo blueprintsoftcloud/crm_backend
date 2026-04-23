@@ -25,9 +25,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/adapter-pg": "^7.4.2",
-    "@prisma/client": "^7.4.2",
-    "@types/pg": "^8.18.0",
+    "@prisma/client": "6.19.3",
     "bcrypt": "^5.1.1",
     "cloudinary": "^1.41.3",
     "compression": "^1.7.5",
@@ -43,7 +41,6 @@
     "multer-storage-cloudinary": "^4.0.0",
     "node-geocoder": "^4.4.1",
     "nodemailer": "^6.9.16",
-    "pg": "^8.19.0",
     "razorpay": "^2.9.6",
     "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
@@ -73,7 +70,7 @@
     "eslint": "^9.15.0",
     "jest": "^29.7.0",
     "nodemon": "^3.1.10",
-    "prisma": "^7.4.2",
+    "prisma": "6.19.3",
     "ts-jest": "^29.2.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

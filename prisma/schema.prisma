@@ -7,7 +7,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
 }
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -72,7 +73,7 @@ enum NotificationType {
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(cuid())
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
   username     String
   email        String?  @unique   // nullable: mobile-OTP customers have no email
   phone        String   @unique   // unique: used as identifier for mobile-OTP login
@@ -101,7 +102,6 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([email])
   @@index([role])
 }
 
@@ -109,8 +109,8 @@ model User {
 // Fixed: was single address per user (upsert). Now multiple addresses with isDefault flag.
 
 model Address {
-  id          String  @id @default(cuid())
-  userId      String
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String @db.ObjectId
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   fullAddress String
@@ -134,7 +134,7 @@ model Address {
 // ─── Category ─────────────────────────────────────────────────────────────────
 
 model Category {
-  id          String    @id @default(cuid())
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
   code        String    @unique
   name        String
   description String?
@@ -151,7 +151,7 @@ model Category {
 // ─── Product ──────────────────────────────────────────────────────────────────
 
 model Product {
-  id            String   @id @default(cuid())
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
   code          String   @unique
   name          String
   description   String?
@@ -168,7 +168,7 @@ model Product {
   isFeatured  Boolean  @default(false)  // Shown in Featured Collections on homepage
   featuredOrder Int?                    // Sort order within featured section (lower = first)
 
-  categoryId  String
+  categoryId  String @db.ObjectId
   category    Category  @relation(fields: [categoryId], references: [id])
 
   cartItems       CartItem[]
@@ -190,8 +190,8 @@ model Product {
 // ─── Cart ─────────────────────────────────────────────────────────────────────
 
 model Cart {
-  id     String     @id @default(cuid())
-  userId String     @unique
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @unique @db.ObjectId
   user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   items  CartItem[]
 
@@ -200,10 +200,10 @@ model Cart {
 }
 
 model CartItem {
-  id        String  @id @default(cuid())
-  cartId    String
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  cartId    String @db.ObjectId
   cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  productId String
+  productId String @db.ObjectId
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   quantity  Int     @default(1)
 
@@ -219,8 +219,8 @@ model CartItem {
 // Added: discountAmount, taxAmount for future coupon/GST support.
 
 model Order {
-  id             String        @id @default(cuid())
-  userId         String
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String @db.ObjectId
   user           User          @relation(fields: [userId], references: [id])
 
   items          OrderItem[]
@@ -244,11 +244,11 @@ model Order {
   shippingAddress Json
 
   // Coupon applied (optional)
-  couponId       String?
+  couponId       String? @db.ObjectId
   coupon         Coupon? @relation(fields: [couponId], references: [id])
 
   // Admin-placed orders: tracks which admin created this on behalf of the customer
-  placedByAdminId String?
+  placedByAdminId String? @db.ObjectId
   placedByAdmin   User?   @relation("AdminPlacedOrders", fields: [placedByAdminId], references: [id])
 
   notifications  Notification[]
@@ -264,10 +264,10 @@ model Order {
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String @db.ObjectId
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId String
+  productId String @db.ObjectId
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float   // Snapshot of price at time of purchase
@@ -280,8 +280,8 @@ model OrderItem {
 // e.g. "Sarees" → Fabric (SELECT), Color (MULTISELECT), Length (NUMBER)
 
 model CategoryAttribute {
-  id           String   @id @default(cuid())
-  categoryId   String
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  categoryId   String @db.ObjectId
   category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   name         String   // e.g. "Fabric", "RAM", "Color"
   type         String   // "SELECT" | "MULTISELECT" | "TEXT" | "NUMBER" | "BOOLEAN"
@@ -304,8 +304,8 @@ model CategoryAttribute {
 // e.g. Fabric → Silk | Cotton | Georgette
 
 model CategoryAttributeValue {
-  id          String            @id @default(cuid())
-  attributeId String
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  attributeId String @db.ObjectId
   attribute   CategoryAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
   value       String
   sortOrder   Int               @default(0)
@@ -322,12 +322,12 @@ model CategoryAttributeValue {
 // TEXT / NUMBER / BOOLEAN → textValue is set; attributeValueId is null.
 
 model ProductAttributeValue {
-  id               String                  @id @default(cuid())
-  productId        String
+  id               String @id @default(auto()) @map("_id") @db.ObjectId
+  productId        String @db.ObjectId
   product          Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
-  attributeId      String
+  attributeId      String @db.ObjectId
   attribute        CategoryAttribute       @relation(fields: [attributeId], references: [id], onDelete: Cascade)
-  attributeValueId String?
+  attributeValueId String? @db.ObjectId
   attributeValue   CategoryAttributeValue? @relation(fields: [attributeValueId], references: [id], onDelete: SetNull)
   textValue        String?
 
@@ -340,10 +340,10 @@ model ProductAttributeValue {
 // Fixed: was stored as array on User document (scalability issue). Now a proper join table.
 
 model Wishlist {
-  id        String  @id @default(cuid())
-  userId    String
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String @db.ObjectId
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId String
+  productId String @db.ObjectId
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
@@ -355,10 +355,10 @@ model Wishlist {
 // ─── Review ───────────────────────────────────────────────────────────────────
 
 model Review {
-  id        String  @id @default(cuid())
-  userId    String
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String @db.ObjectId
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId String
+  productId String @db.ObjectId
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   rating    Int     // 1–5
   comment   String?
@@ -373,17 +373,17 @@ model Review {
 // ─── Notification ─────────────────────────────────────────────────────────────
 
 model Notification {
-  id            String           @id @default(cuid())
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
   message       String
   type          NotificationType
   isRead        Boolean          @default(false)
 
-  orderId       String?
+  orderId       String? @db.ObjectId
   order         Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
-  triggeredById String?          // User who caused the notification
+  triggeredById String? @db.ObjectId          // User who caused the notification
   triggeredBy   User?            @relation("TriggeredNotifications", fields: [triggeredById], references: [id], onDelete: SetNull)
-  recipientId   String?          // null = broadcast to all admins
+  recipientId   String? @db.ObjectId          // null = broadcast to all admins
   recipient     User?            @relation("RecipientNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
   recipientRole String           @default("admin") // "admin" | "customer"
 
@@ -397,7 +397,7 @@ model Notification {
 // Replaces MongoDB TTL index — cleanup handled by a setInterval in server.ts
 
 model Otp {
-  id        String   @id @default(cuid())
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
   email     String
   otp       String
   purpose   String   @default("login") // "login" | "signup" | "passwordReset" | "profileUpdate"
@@ -413,8 +413,8 @@ model Otp {
 // Holds pending profile changes until OTP is verified
 
 model TempUpdate {
-  id          String   @id @default(cuid())
-  userId      String   @unique
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String @unique @db.ObjectId
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   pendingData Json     // { username?, phone?, email? }
   otp         String
@@ -427,7 +427,7 @@ model TempUpdate {
 // New feature — was missing entirely in the original codebase
 
 model Coupon {
-  id             String   @id @default(cuid())
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
   code           String   @unique
   description    String?
   discountType   String   // "PERCENTAGE" | "FLAT"
@@ -449,10 +449,10 @@ model Coupon {
 // permissions: string[] of StaffPermission constants e.g. ["CATEGORY_VIEW", "PRODUCT_ADD"]
 
 model StaffProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String @unique @db.ObjectId
   user        User     @relation("StaffUser", fields: [userId], references: [id], onDelete: Cascade)
-  managedBy   String
+  managedBy   String @db.ObjectId
   manager     User     @relation("StaffManager", fields: [managedBy], references: [id])
   permissions String[] // e.g. ["CATEGORY_VIEW", "CATEGORY_EDIT", "PRODUCT_VIEW", ...]
   isActive    Boolean  @default(true)
@@ -468,8 +468,8 @@ model StaffProfile {
 // Tracks admin/super-admin actions for auditability.
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   action    String   // e.g. "CREATE_COUPON", "DELETE_USER", "UPDATE_ORDER_STATUS"
   entity    String   // e.g. "Coupon", "User", "Order"
@@ -490,7 +490,7 @@ model AuditLog {
 // SUPER_ADMIN access is never blocked by feature flags.
 
 model FeatureFlag {
-  id        String   @id @default(cuid())
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
   feature   Feature  @unique
   isEnabled Boolean  @default(true)
   updatedAt DateTime @updatedAt
@@ -501,7 +501,7 @@ model FeatureFlag {
 // Example keys: "WAREHOUSE_LAT", "WAREHOUSE_LNG", "WAREHOUSE_NAME"
 
 model AppSetting {
-  key       String   @id   // e.g. "WAREHOUSE_LAT"
+  key       String @id @default(auto()) @map("_id") @db.ObjectId  // e.g. "WAREHOUSE_LAT"
   value     String         // stored as string, cast at read-time
   updatedAt DateTime @updatedAt
 }
@@ -511,10 +511,10 @@ model AppSetting {
 // Captures Razorpay IDs, raw gateway response, and signature verification result.
 
 model PaymentLog {
-  id                String        @id @default(cuid())
-  orderId           String
+  id                String @id @default(auto()) @map("_id") @db.ObjectId
+  orderId           String @db.ObjectId
   order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  userId            String
+  userId            String @db.ObjectId
   user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Event type: ORDER_CREATED | PAYMENT_SUCCESS | PAYMENT_FAILED | ORDER_POD
@@ -554,7 +554,7 @@ model PaymentLog {
 //   HOME_DISCOUNT_TITLE, HOME_DISCOUNT_SUBTITLE
 
 model HomeBanner {
-  id          String   @id @default(cuid())
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
   type        String   // "DISCOUNT_PANEL" | "CAROUSEL_ITEM"
 
   // Shared fields

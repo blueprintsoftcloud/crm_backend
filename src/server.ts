@@ -6,7 +6,7 @@ import cookieParser from "cookie-parser";
 import path from "path";
 
 import { env } from "./config/env";
-import { prisma } from "./config/database";
+import { connectDB } from "./config/database";
 import { errorHandler } from "./middleware/errorHandler.middleware";
 import { generalLimiter } from "./middleware/rateLimit.middleware";
 import initSocket from "./socket/socketManager";
@@ -107,9 +107,9 @@ app.use(errorHandler);
 // ── Start ─────────────────────────────────────────────────────────────────────
 const startServer = async () => {
   try {
-    console.log("Connecting to PostgreSQL...");
-    await prisma.$connect();
-    console.log("PostgreSQL connected.");
+    console.log("Connecting to MongoDB...");
+    await connectDB();
+    console.log("MongoDB connected.");
 
     const PORT = Number(env.PORT ?? 5000);
     server.listen(PORT, "0.0.0.0", () => {
