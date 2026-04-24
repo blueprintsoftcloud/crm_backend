@@ -109,7 +109,8 @@ app.use(errorHandler);
 app.use(express.static(path.join(__dirname, "../client")));
 
 // ── React Router Catch-all ─────────────────────────────────────────────────
-app.get("*", (req, res) => {
+// NEW - works with Express 5
+app.get("*splat", (req, res) => {
   res.sendFile(path.join(__dirname, "../client", "index.html"));
 });
 
