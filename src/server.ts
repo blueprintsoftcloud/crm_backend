@@ -101,6 +101,38 @@ app.use("/api/payment-logs", paymentLogRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/home-banners", homeBannerRoutes);
 
+
+// ── Temporary Super Admin Seed ────────────────────────────────────────────────
+app.get("/api/seed-super-admin", async (req: any, res: any, next: any) => {
+  try {
+    if (req.query.secret !== "TEMP_SUPERADMIN_SECRET_2026") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const bcrypt = await import("bcrypt");
+    const { prisma } = await import("./config/database");
+    const existingUser = await prisma.user.findFirst({
+      where: { OR: [{ email: "pingwgc@gmail.com" }, { phone: "9999999999" }] },
+    });
+    if (existingUser) {
+      return res.status(200).json({ message: "Super admin already exists", userId: existingUser.id });
+    }
+    const hashedPassword = await bcrypt.hash("Admin@1234", 10);
+    const user = await prisma.user.create({
+      data: {
+        username: "Super Admin",
+        email: "pingwgc@gmail.com",
+        phone: "9999999999",
+        password: hashedPassword,
+        role: "SUPER_ADMIN",
+        isVerified: true,
+      },
+    });
+    return res.status(201).json({ message: "Super admin created", userId: user.id });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ── Error Handler ─────────────────────────────────────────────────────────────
 app.use(errorHandler);
 
