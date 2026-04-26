@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { prisma } from "../config/database";
+import { User, Otp } from "../models/mongoose";
 import { generateToken } from "../config/tokens";
 import {
   generateOtpCode,
@@ -18,13 +18,13 @@ export const signup = async (req: Request, res: Response) => {
     const { username, email, phone, password } = req.body;
 
     const emailExists = email
-      ? await prisma.user.findFirst({ where: { email } })
+      ? await User.findOne({ email })
       : null;
     if (emailExists) {
       return res.status(400).json({ Error: "An account with this email address already exists." });
     }
     const phoneExists = phone
-      ? await prisma.user.findFirst({ where: { phone: String(phone) } })
+      ? await User.findOne({ phone: String(phone) })
       : null;
     if (phoneExists) {
       return res.status(400).json({ Error: "An account with this phone number already exists." });
@@ -36,19 +36,15 @@ export const signup = async (req: Request, res: Response) => {
     // - SUPER_ADMIN is never created via signup; the seed script is the only path.
     // - First signup becomes ADMIN (the shop owner).
     // - Every subsequent signup is CUSTOMER.
-    const adminExists = await prisma.user.findFirst({
-      where: { role: "ADMIN" },
-    });
+    const adminExists = await User.findOne({ role: "ADMIN" });
     const role = adminExists ? "CUSTOMER" : "ADMIN";
 
-    const user = await prisma.user.create({
-      data: {
-        username,
-        email,
-        phone: String(phone),
-        password: hashedPassword,
-        role,
-      },
+    const user = await User.create({
+      username,
+      email,
+      phone: String(phone),
+      password: hashedPassword,
+      role,
     });
 
     await generateToken(
@@ -85,7 +81,7 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     if (!user.password) {
@@ -97,11 +93,11 @@ export const login = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Password mismatched" });
 
     // Clear old OTPs, create new
-    await prisma.otp.deleteMany({ where: { email } });
+    await Otp.deleteMany({ email });
     const otpCode = generateOtpCode();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    await prisma.otp.create({ data: { email, otp: otpCode, expiresAt } });
+    await Otp.create({ email, otp: otpCode, expiresAt });
 
     await transporter.sendMail({
       from: env.EMAIL_USER,
@@ -127,7 +123,7 @@ export const verifyLoginOtp = async (req: Request, res: Response) => {
   try {
     const { email, otp } = req.body;
 
-    const otpRecord = await prisma.otp.findFirst({ where: { email, otp } });
+    const otpRecord = await Otp.findOne({ email, otp });
 
     if (!otpRecord) {
       return res.status(401).json({ message: "Invalid or expired OTP." });
@@ -135,16 +131,16 @@ export const verifyLoginOtp = async (req: Request, res: Response) => {
 
     // Check expiry
     if (otpRecord.expiresAt && otpRecord.expiresAt < new Date()) {
-      await prisma.otp.delete({ where: { id: otpRecord.id } });
+      await Otp.findByIdAndDelete(otpRecord._id);
       return res
         .status(401)
         .json({ message: "OTP has expired. Please request a new one." });
     }
 
     // Consume OTP
-    await prisma.otp.delete({ where: { id: otpRecord.id } });
+    await Otp.findByIdAndDelete(otpRecord._id);
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await User.findOne({ email });
     if (!user)
       return res.status(400).json({ message: "User record not found." });
 
@@ -169,18 +165,18 @@ export const resendOtp = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await User.findOne({ email });
     // Generic response to avoid email enumeration
     if (!user)
       return res
         .status(200)
         .json({ message: "If registered, OTP has been sent." });
 
-    await prisma.otp.deleteMany({ where: { email } });
+    await Otp.deleteMany({ email });
     const otpCode = generateOtpCode();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    await prisma.otp.create({ data: { email, otp: otpCode, expiresAt } });
+    await Otp.create({ email, otp: otpCode, expiresAt });
 
     await transporter.sendMail({
       from: env.EMAIL_USER,
@@ -243,10 +239,7 @@ export const logout = async (req: Request, res: Response) => {
     }
 
     if (userId) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { refreshToken: null },
-      });
+      await User.findByIdAndUpdate(userId, { refreshToken: null });
     }
 
     return res.status(200).json({ message: "Logout Successful" });
@@ -271,7 +264,7 @@ export const refreshTokens = async (req: Request, res: Response) => {
       tokenValue: string;
     };
 
-    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    const user = await User.findById(decoded.id);
 
     if (!user || user.refreshToken !== decoded.tokenValue) {
       clearAuthCookies(res);
@@ -345,7 +338,7 @@ export const mobileLogin = async (req: Request, res: Response) => {
     }
 
     // Find the customer — must already exist
-    const user = await prisma.user.findFirst({ where: { phone: phone.trim() } });
+    const user = await User.findOne({ phone: phone.trim() });
     if (!user) {
       return res.status(404).json({
         message: "No account found with this number. Please sign up first.",
@@ -392,7 +385,7 @@ export const registerCustomer = async (req: Request, res: Response) => {
     }
 
     // Check for duplicate phone or email — specific per field
-    const phoneExists = await prisma.user.findFirst({ where: { phone: phone.trim() } });
+    const phoneExists = await User.findOne({ phone: phone.trim() });
     if (phoneExists) {
       return res.status(409).json({
         message: "An account with this phone number already exists. Please sign in.",
@@ -400,7 +393,7 @@ export const registerCustomer = async (req: Request, res: Response) => {
       });
     }
     if (email?.trim()) {
-      const emailExists = await prisma.user.findFirst({ where: { email: email.trim().toLowerCase() } });
+      const emailExists = await User.findOne({ email: email.trim().toLowerCase() });
       if (emailExists) {
         return res.status(409).json({
           message: "An account with this email address already exists. Please sign in with a different email.",
@@ -409,13 +402,11 @@ export const registerCustomer = async (req: Request, res: Response) => {
       }
     }
 
-    const user = await prisma.user.create({
-      data: {
-        username: name.trim(),
-        email: email?.trim().toLowerCase() || null,
-        phone: phone.trim(),
-        role: "CUSTOMER",
-      },
+    const user = await User.create({
+      username: name.trim(),
+      email: email?.trim().toLowerCase() || null,
+      phone: phone.trim(),
+      role: "CUSTOMER",
     });
 
     await generateToken({ id: user.id, email: user.email ?? "", role: user.role }, res);
@@ -437,7 +428,7 @@ export const registerCustomer = async (req: Request, res: Response) => {
 export const checkPhoneExists = async (req: Request, res: Response) => {
   const { phone } = req.body as { phone: string };
   try {
-    const user = await prisma.user.findFirst({ where: { phone: phone.trim() } });
+    const user = await User.findOne({ phone: phone.trim() });
     if (!user) {
       return res.status(404).json({
         message: "No account found with this number. Please sign up first.",

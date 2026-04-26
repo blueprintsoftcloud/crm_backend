@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
-import { prisma } from "../config/database";
+import { User, Product, Order } from "../models/mongoose";
 import logger from "../utils/logger";
 import { createAuditLog } from "../utils/auditLog";
 
@@ -33,45 +33,44 @@ export const getAdminSummary = async (_req: Request, res: Response) => {
       productCurrent,
       productPrev,
     ] = await Promise.all([
-      prisma.order.count(),
-      prisma.order.count({ where: { createdAt: { gte: last30 } } }),
-      prisma.order.count({ where: { createdAt: { gte: prev30, lt: last30 } } }),
+      Order.countDocuments(),
+      Order.countDocuments({ createdAt: { $gte: last30 } }),
+      Order.countDocuments({ createdAt: { $gte: prev30, $lt: last30 } }),
 
-      prisma.user.count({ where: { role: "CUSTOMER" } }),
-      prisma.user.count({
-        where: { role: "CUSTOMER", createdAt: { gte: last30 } },
+      User.countDocuments({ role: "CUSTOMER" }),
+      User.countDocuments({
+        role: "CUSTOMER", createdAt: { $gte: last30 },
       }),
-      prisma.user.count({
-        where: { role: "CUSTOMER", createdAt: { gte: prev30, lt: last30 } },
+      User.countDocuments({
+        role: "CUSTOMER", createdAt: { $gte: prev30, $lt: last30 },
       }),
 
-      prisma.product.count(),
-      prisma.product.count({ where: { createdAt: { gte: last30 } } }),
-      prisma.product.count({
-        where: { createdAt: { gte: prev30, lt: last30 } },
+      Product.countDocuments(),
+      Product.countDocuments({ createdAt: { $gte: last30 } }),
+      Product.countDocuments({
+        createdAt: { $gte: prev30, $lt: last30 },
       }),
     ]);
 
     // Revenue (sum of finalAmount on PAID orders)
-    const revenueAll = await prisma.order.aggregate({
-      where: { paymentStatus: "PAID" },
-      _sum: { finalAmount: true },
-    });
-    const revenueCurrent = await prisma.order.aggregate({
-      where: { paymentStatus: "PAID", createdAt: { gte: last30 } },
-      _sum: { finalAmount: true },
-    });
-    const revenuePrev = await prisma.order.aggregate({
-      where: { paymentStatus: "PAID", createdAt: { gte: prev30, lt: last30 } },
-      _sum: { finalAmount: true },
-    });
+    const revenueAll = await Order.aggregate([
+      { $match: { paymentStatus: "PAID" } },
+      { $group: { _id: null, total: { $sum: "$finalAmount" } } }
+    ]);
+    const revenueCurrent = await Order.aggregate([
+      { $match: { paymentStatus: "PAID", createdAt: { $gte: last30 } } },
+      { $group: { _id: null, total: { $sum: "$finalAmount" } } }
+    ]);
+    const revenuePrev = await Order.aggregate([
+      { $match: { paymentStatus: "PAID", createdAt: { $gte: prev30, $lt: last30 } } },
+      { $group: { _id: null, total: { $sum: "$finalAmount" } } }
+    ]);
 
     // ── Sales Chart (last 7 days) ────────────────────────────────────────────
     const sevenDaysAgo = daysAgo(7);
-    const paidOrdersLast7 = await prisma.order.findMany({
-      where: { paymentStatus: "PAID", createdAt: { gte: sevenDaysAgo } },
-      select: { finalAmount: true, createdAt: true },
-    });
+    const paidOrdersLast7 = await Order.find({
+      paymentStatus: "PAID", createdAt: { $gte: sevenDaysAgo }
+    }).select('finalAmount createdAt');
 
     // Group by date
     const salesByDate: Record<string, { revenue: number; orders: number }> = {};
@@ -86,28 +85,28 @@ export const getAdminSummary = async (_req: Request, res: Response) => {
       .sort((a, b) => a._id.localeCompare(b._id));
 
     // ── Latest Orders ────────────────────────────────────────────────────────
-    const latestOrders = await prisma.order.findMany({
-      include: {
-        user: { select: { id: true, username: true, email: true } },
-        items: {
-          include: {
-            product: {
-              select: { id: true, name: true, price: true, image: true },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    });
+    const latestOrders = await Order.find()
+      .populate({
+        path: 'user',
+        select: 'id username email'
+      })
+      .populate({
+        path: 'items',
+        populate: {
+          path: 'product',
+          select: 'id name price image'
+        }
+      })
+      .sort({ createdAt: -1 })
+      .limit(10);
 
     res.status(200).json({
       summary: {
         revenue: {
-          total: revenueAll._sum.finalAmount ?? 0,
+          total: revenueAll[0]?.total ?? 0,
           growth: calculatePercentage(
-            revenueCurrent._sum.finalAmount ?? 0,
-            revenuePrev._sum.finalAmount ?? 0,
+            revenueCurrent[0]?.total ?? 0,
+            revenuePrev[0]?.total ?? 0,
           ),
         },
         orders: {
@@ -173,68 +172,58 @@ export const getDashboardData = async (_req: Request, res: Response) => {
       // Top products
       topProductItems,
     ] = await Promise.all([
-      prisma.order.aggregate({ where: { paymentStatus: "PAID" }, _sum: { finalAmount: true } }),
-      prisma.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: thirtyDaysAgo } }, _sum: { finalAmount: true } }),
-      prisma.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } }, _sum: { finalAmount: true } }),
-      prisma.order.count(),
-      prisma.order.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-      prisma.order.count({ where: { createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
-      prisma.order.count({ where: { orderStatus: "PROCESSING" } }),
-      prisma.user.count({ where: { role: "CUSTOMER" } }),
-      prisma.user.count({ where: { role: "CUSTOMER", createdAt: { gte: thirtyDaysAgo } } }),
-      prisma.user.count({ where: { role: "CUSTOMER", createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } } }),
-      prisma.product.count(),
+      Order.aggregate([{ $match: { paymentStatus: "PAID" } }, { $group: { _id: null, total: { $sum: "$finalAmount" } } }]),
+      Order.aggregate([{ $match: { paymentStatus: "PAID", createdAt: { $gte: thirtyDaysAgo } } }, { $group: { _id: null, total: { $sum: "$finalAmount" } } }]),
+      Order.aggregate([{ $match: { paymentStatus: "PAID", createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } }, { $group: { _id: null, total: { $sum: "$finalAmount" } } }]),
+      Order.countDocuments(),
+      Order.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }),
+      Order.countDocuments({ createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
+      Order.countDocuments({ orderStatus: "PROCESSING" }),
+      User.countDocuments({ role: "CUSTOMER" }),
+      User.countDocuments({ role: "CUSTOMER", createdAt: { $gte: thirtyDaysAgo } }),
+      User.countDocuments({ role: "CUSTOMER", createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
+      Product.countDocuments(),
       // Last 7 days paid orders for revenue chart
-      prisma.order.findMany({
-        where: { paymentStatus: "PAID", createdAt: { gte: sevenDaysAgo } },
-        select: { finalAmount: true, createdAt: true },
-      }),
+      Order.find({
+        paymentStatus: "PAID", createdAt: { $gte: sevenDaysAgo }
+      }).select('finalAmount createdAt'),
       // Order status breakdown
-      prisma.order.count({ where: { orderStatus: "PROCESSING" } }),
-      prisma.order.count({ where: { orderStatus: "CONFIRMED" } }),
-      prisma.order.count({ where: { orderStatus: "SHIPPED" } }),
-      prisma.order.count({ where: { orderStatus: "DELIVERED" } }),
-      prisma.order.count({ where: { orderStatus: "CANCELLED" } }),
+      Order.countDocuments({ orderStatus: "PROCESSING" }),
+      Order.countDocuments({ orderStatus: "CONFIRMED" }),
+      Order.countDocuments({ orderStatus: "SHIPPED" }),
+      Order.countDocuments({ orderStatus: "DELIVERED" }),
+      Order.countDocuments({ orderStatus: "CANCELLED" }),
       // Low stock: products with stock <= 10, ordered by stock asc
-      prisma.product.findMany({
-        where: { stock: { lte: 10 } },
-        select: { id: true, name: true, stock: true, image: true, category: { select: { name: true } } },
-        orderBy: { stock: "asc" },
-        take: 8,
-      }),
+      Product.find({ stock: { $lte: 10 } })
+        .select('id name stock image')
+        .populate('categoryId', 'name')
+        .sort({ stock: 1 })
+        .limit(8),
       // Recent orders
-      prisma.order.findMany({
-        select: {
-          id: true,
-          finalAmount: true,
-          orderStatus: true,
-          paymentStatus: true,
-          paymentMethod: true,
-          createdAt: true,
-          user: { select: { username: true, email: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 8,
-      }),
+      Order.find()
+        .select('id finalAmount orderStatus paymentStatus paymentMethod createdAt')
+        .populate('userId', 'username email')
+        .sort({ createdAt: -1 })
+        .limit(8),
       // Payment methods
-      prisma.order.aggregate({ where: { paymentMethod: "ONLINE" }, _sum: { finalAmount: true }, _count: { id: true } }),
-      prisma.order.aggregate({ where: { paymentMethod: "POD" }, _sum: { finalAmount: true }, _count: { id: true } }),
+      Order.aggregate([{ $match: { paymentMethod: "ONLINE" } }, { $group: { _id: null, total: { $sum: "$finalAmount" }, count: { $sum: 1 } } }]),
+      Order.aggregate([{ $match: { paymentMethod: "POD" } }, { $group: { _id: null, total: { $sum: "$finalAmount" }, count: { $sum: 1 } } }]),
       // Category revenue
-      prisma.orderItem.findMany({
-        select: {
-          quantity: true,
-          price: true,
-          product: { select: { category: { select: { id: true, name: true } } } },
-        },
-        take: 5000,
-      }),
+      Order.find({ paymentStatus: "PAID" })
+        .select('items')
+        .populate({
+          path: 'items.productId',
+          select: 'categoryId',
+          populate: { path: 'categoryId', select: 'name' }
+        })
+        .limit(5000),
       // Top products by revenue
-      prisma.orderItem.groupBy({
-        by: ["productId"],
-        _sum: { price: true, quantity: true },
-        orderBy: { _sum: { price: "desc" } },
-        take: 5,
-      }),
+      Order.aggregate([
+        { $unwind: "$items" },
+        { $group: { _id: "$items.productId", totalPrice: { $sum: { $multiply: ["$items.price", "$items.quantity"] } }, totalQuantity: { $sum: "$items.quantity" } } },
+        { $sort: { totalPrice: -1 } },
+        { $limit: 5 }
+      ]),
     ]);
 
     // ── Build sales chart (last 7 days) ────────────────────────────────────
@@ -255,12 +244,15 @@ export const getDashboardData = async (_req: Request, res: Response) => {
 
     // ── Build category breakdown ───────────────────────────────────────────
     const catMap: Record<string, { name: string; revenue: number; unitsSold: number }> = {};
-    for (const item of categoryOrderItems) {
-      const cat = item.product?.category;
-      if (!cat) continue;
-      if (!catMap[cat.id]) catMap[cat.id] = { name: cat.name, revenue: 0, unitsSold: 0 };
-      catMap[cat.id].revenue += item.price;
-      catMap[cat.id].unitsSold += item.quantity;
+    for (const order of categoryOrderItems) {
+      if (!order.items) continue;
+      for (const item of order.items) {
+        const cat = (item as any).productId?.categoryId;
+        if (!cat) continue;
+        if (!catMap[cat.id]) catMap[cat.id] = { name: cat.name, revenue: 0, unitsSold: 0 };
+        catMap[cat.id].revenue += item.price * item.quantity;
+        catMap[cat.id].unitsSold += item.quantity;
+      }
     }
     const topCategories = Object.entries(catMap)
       .map(([id, v]) => ({ id, ...v }))
@@ -268,16 +260,14 @@ export const getDashboardData = async (_req: Request, res: Response) => {
       .slice(0, 6);
 
     // ── Resolve top product names ──────────────────────────────────────────
-    const productIds = topProductItems.map((i) => i.productId);
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
-      select: { id: true, name: true, price: true, image: true },
-    });
-    const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
-    const topProducts = topProductItems.map((item) => ({
-      product: productMap[item.productId] ?? null,
-      totalRevenue: item._sum.price ?? 0,
-      totalQuantitySold: item._sum.quantity ?? 0,
+    const productIds = topProductItems.map((i: any) => i._id);
+    const products = await Product.find({ _id: { $in: productIds } })
+      .select('id name price image');
+    const productMap = Object.fromEntries(products.map((p: any) => [p.id, p]));
+    const topProducts = topProductItems.map((item: any) => ({
+      product: productMap[item._id] ?? null,
+      totalRevenue: item.totalPrice ?? 0,
+      totalQuantitySold: item.totalQuantity ?? 0,
     }));
 
     const pct = (curr: number, prev: number) => {
@@ -288,9 +278,9 @@ export const getDashboardData = async (_req: Request, res: Response) => {
     res.json({
       summary: {
         revenue: {
-          total: totalRevenueAgg._sum.finalAmount ?? 0,
-          thisMonth: thisMonthRevenueAgg._sum.finalAmount ?? 0,
-          growthPct: pct(thisMonthRevenueAgg._sum.finalAmount ?? 0, prevMonthRevenueAgg._sum.finalAmount ?? 0),
+          total: totalRevenueAgg[0]?.total ?? 0,
+          thisMonth: thisMonthRevenueAgg[0]?.total ?? 0,
+          growthPct: pct(thisMonthRevenueAgg[0]?.total ?? 0, prevMonthRevenueAgg[0]?.total ?? 0),
         },
         orders: {
           total: totalOrders,
@@ -318,8 +308,8 @@ export const getDashboardData = async (_req: Request, res: Response) => {
       lowStockProducts,
       recentOrders,
       paymentMethods: [
-        { method: "ONLINE", count: onlineAgg._count.id, revenue: onlineAgg._sum.finalAmount ?? 0 },
-        { method: "COD", count: codAgg._count.id, revenue: codAgg._sum.finalAmount ?? 0 },
+        { method: "ONLINE", count: onlineAgg[0]?.count ?? 0, revenue: onlineAgg[0]?.total ?? 0 },
+        { method: "COD", count: codAgg[0]?.count ?? 0, revenue: codAgg[0]?.total ?? 0 },
       ],
     });
   } catch (err: any) {
@@ -346,21 +336,12 @@ export const getAllUsers = async (req: Request, res: Response) => {
         : { role: { in: allowedRoles } };
 
     const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          phone: true,
-          role: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: pageSize,
-      }),
-      prisma.user.count({ where }),
+      User.find(where)
+        .select('id username email phone role createdAt')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize),
+      User.countDocuments(where),
     ]);
 
     res.json({
@@ -389,11 +370,11 @@ export const createAdminUser = async (req: Request, res: Response) => {
       role: string;
     };
 
-    const emailExisted = await prisma.user.findFirst({ where: { email } });
+    const emailExisted = await User.findOne({ email });
     if (emailExisted)
       return res.status(400).json({ Error: "An account with this email address already exists." });
 
-    const phoneExisted = await prisma.user.findFirst({ where: { phone } });
+    const phoneExisted = await User.findOne({ phone });
     if (phoneExisted)
       return res.status(400).json({ Error: "An account with this phone number already exists." });
 
@@ -407,15 +388,13 @@ export const createAdminUser = async (req: Request, res: Response) => {
 
     const normalizedRole = role.toUpperCase() as "CUSTOMER" | "ADMIN" | "SUPER_ADMIN";
 
-    await prisma.user.create({
-      data: {
-        username,
-        email,
-        phone,
-        password: hashedPassword,
-        role: normalizedRole,
-        isVerified: true,
-      },
+    const newUser = await User.create({
+      username,
+      email,
+      phone,
+      password: hashedPassword,
+      role: normalizedRole,
+      isVerified: true,
     });
     await createAuditLog({ req, action: "CREATE_USER", entity: "User", details: { username, email, role: normalizedRole } });
     res.json({ message: `User created successfully with role: ${normalizedRole}.` });
@@ -441,10 +420,7 @@ export const updateUser = async (req: Request, res: Response) => {
       phone?: string;
     };
 
-    const existing = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, role: true },
-    });
+    const existing = await User.findById(id).select('id role');
     if (!existing) return res.status(404).json({ message: "User not found." });
     if (existing.role === "SUPER_ADMIN") {
       return res.status(403).json({ message: "Cannot modify a Super Admin account." });
@@ -452,27 +428,27 @@ export const updateUser = async (req: Request, res: Response) => {
 
     // Check uniqueness conflicts
     if (email || phone) {
-      const orConditions: object[] = [];
+      const orConditions: any[] = [];
       if (email) orConditions.push({ email });
       if (phone) orConditions.push({ phone });
-      const conflict = await prisma.user.findFirst({
-        where: { AND: [{ id: { not: id } }, { OR: orConditions }] },
-        select: { id: true },
-      });
+      const conflict = await User.findOne({
+        _id: { $ne: id },
+        $or: orConditions
+      }).select('id');
       if (conflict) {
         return res.status(400).json({ message: "Email or phone already in use by another account." });
       }
     }
 
-    const updated = await prisma.user.update({
-      where: { id },
-      data: {
+    const updated = await User.findByIdAndUpdate(
+      id,
+      {
         ...(username !== undefined && { username }),
         ...(email !== undefined && { email }),
         ...(phone !== undefined && { phone }),
       },
-      select: { id: true, username: true, email: true, phone: true, role: true },
-    });
+      { new: true }
+    ).select('id username email phone role');
 
     return res.json({ message: "User updated successfully.", user: updated });
   } catch (err: any) {
@@ -486,10 +462,7 @@ export const deleteUser = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
 
-    const target = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, role: true },
-    });
+    const target = await User.findById(id).select('id role');
     if (!target) return res.status(404).json({ message: "User not found." });
     if (target.role === "SUPER_ADMIN") {
       return res.status(403).json({ message: "Cannot delete a Super Admin account." });
@@ -498,7 +471,7 @@ export const deleteUser = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "You cannot delete your own account." });
     }
 
-    await prisma.user.delete({ where: { id } });
+    await User.findByIdAndDelete(id);
     await createAuditLog({ req, action: "DELETE_USER", entity: "User", entityId: id, details: { role: target.role } });
     return res.json({ message: "User deleted successfully." });
   } catch (err: any) {

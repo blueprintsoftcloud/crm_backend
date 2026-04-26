@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { Wishlist, Product } from "../models/mongoose";
 import logger from "../utils/logger";
 
 // Helper: emit customer-wishlist-update to admin room via socket

@@ -3,7 +3,7 @@
 // Logs are written automatically by order.controller.ts on every payment event.
 
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { PaymentLog } from "../models/mongoose";
 import logger from "../utils/logger";
 
 // ── GET /api/payment-logs ─────────────────────────────────────────────────────

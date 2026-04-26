@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import crypto from "crypto";
-import { prisma } from "../config/database";
+import { User, Order, Cart, Product, PaymentLog, StaffProfile } from "../models/mongoose";
 import razorpay from "../config/razorpay";
 import { calculateShippingWithConfig } from "../services/shipping.service";
 import { env } from "../config/env";

@@ -3,7 +3,7 @@
 // Silently swallows errors so audit-log failures never break normal API flow.
 
 import { Request } from "express";
-import { prisma } from "../config/database";
+import { AuditLog } from "../models/mongoose";
 import logger from "./logger";
 
 interface AuditLogEntry {

@@ -1,7 +1,7 @@
 // src/controllers/auditLog.controller.ts
 
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { AuditLog } from "../models/mongoose";
 import logger from "../utils/logger";
 
 // GET /api/audit-logs?page=1&limit=30&action=&entity=&userId=

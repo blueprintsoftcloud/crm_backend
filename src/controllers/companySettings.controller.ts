@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { CompanySettings } from "../models/mongoose";
 import { uploadToCloudinary } from "../config/cloudinary";
 import logger from "../utils/logger";
 

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
-import { prisma } from "../config/database";
+import { User, StaffProfile, Product, Order } from "../models/mongoose";
 import { STAFF_PERMISSIONS, StaffPermission } from "../config/staffPermissions";
 import logger from "../utils/logger";
 

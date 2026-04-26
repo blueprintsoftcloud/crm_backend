@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { prisma } from "../config/database";
+import { User, PasswordReset } from "../models/mongoose";
 import {
   generateOtpCode,
   transporter,

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { User, Product, Order } from "../models/mongoose";
 import logger from "../utils/logger";
 
 // ── GET /api/analytics/summary ─────────────────────────────────────────────

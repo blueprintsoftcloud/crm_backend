@@ -3,7 +3,7 @@
 // with item counts and full details on demand.
 
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { User, Cart, Wishlist, Order } from "../models/mongoose";
 import logger from "../utils/logger";
 
 // ── Shared include shapes (as const for Prisma type inference) ───────────────

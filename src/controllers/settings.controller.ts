@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { AppSetting, FeatureFlag } from "../models/mongoose";
 import logger from "../utils/logger";
 import { createAuditLog } from "../utils/auditLog";
 import { env } from "../config/env";

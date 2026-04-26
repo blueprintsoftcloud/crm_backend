@@ -7,7 +7,7 @@
 // Section-level header text (title / subtitle) is stored in AppSetting.
 
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { HomeBanner } from "../models/mongoose";
 import { uploadToCloudinary, deleteFromCloudinary } from "../config/cloudinary";
 import logger from "../utils/logger";
 import { createAuditLog } from "../utils/auditLog";

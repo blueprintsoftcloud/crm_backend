@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { Prisma } from "../generated/prisma/client";
-import { prisma } from "../config/database";
+import { Product, Category, Review } from "../models/mongoose";
+import { Prisma } from "../generated/prisma";
 import logger from "../utils/logger";
 
 // GET /api/user/categories  — lightweight category list for user display

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { Address, FeatureFlag } from "../models/mongoose";
 import { calculateShippingWithConfig } from "../services/shipping.service";
 import { getWarehouseCoords, getShippingConfigFromDB } from "../utils/warehouseSettings";
 import logger from "../utils/logger";
@@ -9,7 +9,7 @@ const geocoder = NodeGeocoder({ provider: "openstreetmap" });
 
 /** Check whether the WAREHOUSE_SETTINGS feature flag is enabled. */
 const isWarehouseEnabled = async (): Promise<boolean> => {
-  const flag = await prisma.featureFlag.findUnique({ where: { feature: "WAREHOUSE_SETTINGS" } });
+  const flag = await FeatureFlag.findOne({ feature: "WAREHOUSE_SETTINGS" });
   return !flag || flag.isEnabled;
 };
 
@@ -40,7 +40,7 @@ export const saveLocationAndGetShipping = async (req: Request, res: Response) =>
       distanceKm = result.distanceKm;
     }
 
-    const existingDefault = await prisma.address.findFirst({ where: { userId, isDefault: true } });
+    const existingDefault = await Address.findOne({ userId, isDefault: true });
     const addressData = {
       userId,
       fullAddress: data.formattedAddress ?? "",
@@ -53,8 +53,8 @@ export const saveLocationAndGetShipping = async (req: Request, res: Response) =>
       isDefault: true,
     };
     const address = existingDefault
-      ? await prisma.address.update({ where: { id: existingDefault.id }, data: addressData })
-      : await prisma.address.create({ data: addressData });
+      ? await Address.findByIdAndUpdate(existingDefault.id, addressData, { new: true })
+      : await Address.create(addressData);
 
     res.status(200).json({ address, distance: distanceKm.toFixed(2) + " KM", shippingCharge });
   } catch (err: any) {
@@ -79,14 +79,14 @@ export const saveManualAddress = async (req: Request, res: Response) => {
       shippingCharge = calculateShippingWithConfig(0, 0, country, state ?? "", config, warehouse.lat, warehouse.lng).shippingCharge;
     }
 
-    const existingDefault = await prisma.address.findFirst({ where: { userId, isDefault: true } });
+    const existingDefault = await Address.findOne({ userId, isDefault: true });
     const addressData = {
       userId, fullAddress, city, state: state ?? "", country, zipCode,
       latitude: null, longitude: null, isDefault: true,
     };
     const address = existingDefault
-      ? await prisma.address.update({ where: { id: existingDefault.id }, data: addressData })
-      : await prisma.address.create({ data: addressData });
+      ? await Address.findByIdAndUpdate(existingDefault.id, addressData, { new: true })
+      : await Address.create(addressData);
 
     res.status(200).json({ address, shippingCharge });
   } catch (err: any) {
@@ -99,7 +99,7 @@ export const saveManualAddress = async (req: Request, res: Response) => {
 export const getDefaultAddress = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const address = await prisma.address.findFirst({ where: { userId, isDefault: true } });
+    const address = await Address.findOne({ userId, isDefault: true });
     res.json({ address: address ?? null });
   } catch (err: any) {
     logger.error("getDefaultAddress error", err);

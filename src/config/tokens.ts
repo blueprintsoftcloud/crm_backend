@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { Response } from "express";
-import { prisma } from "./database";
+import { User } from "../models/index";
 import { env } from "./env";
 
 const generateRefreshTokenValue = () => crypto.randomBytes(32).toString("hex");
@@ -24,9 +24,8 @@ export const generateToken = async (
   );
 
   // Store refresh token value in DB
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { refreshToken: refreshTokenValue },
+  await User.findByIdAndUpdate(user.id, {
+    refreshToken: refreshTokenValue,
   });
 
   // In production (HTTPS) use sameSite:"none" + secure:true.

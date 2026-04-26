@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { User, TempUpdate } from "../models/mongoose";
 import {
   generateOtpCode,
   otpEmailTemplate,

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { Notification } from "../models/mongoose";
 import logger from "../utils/logger";
 
 // GET /api/notifications  — my notifications (any authenticated role)

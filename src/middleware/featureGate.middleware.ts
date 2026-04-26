@@ -8,10 +8,10 @@
 //   - Returns 403 with { message, feature } if the feature is disabled.
 
 import { Request, Response, NextFunction } from "express";
-import { Feature } from "../generated/prisma/client";
-import { prisma } from "../config/database";
+import { FeatureFlag } from "../models/mongoose";
+import { Feature } from "../generated/prisma";
 
-export const featureGate = (feature: Feature) => {
+export const featureGate = (feature: string) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // Super Admin is never blocked by feature flags
     if (req.user?.role === "SUPER_ADMIN") {
@@ -21,7 +21,7 @@ export const featureGate = (feature: Feature) => {
 
     try {
       const flag = await prisma.featureFlag.findUnique({
-        where: { feature },
+        where: { feature: feature as Feature },
       });
 
       // Only block if a row explicitly has isEnabled = false.

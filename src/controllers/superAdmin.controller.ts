@@ -1,10 +1,6 @@
-// src/controllers/superAdmin.controller.ts
-// All handlers here are protected by authMiddleware + superAdminMiddleware,
-// EXCEPT getFeatureFlags which is readable by ADMIN too (needed for sidebar rendering).
-
 import { Request, Response } from "express";
-import { Feature } from "../generated/prisma/client";
-import { prisma } from "../config/database";
+import { FeatureFlag, User, Order } from "../models/mongoose";
+import { Feature } from "../generated/prisma";
 import logger from "../utils/logger";
 import { createAuditLog } from "../utils/auditLog";
 

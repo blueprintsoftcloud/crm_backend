@@ -1,31 +1,19 @@
 import "dotenv/config";
-import { PrismaClient } from "../generated/prisma/client";
+import mongoose from "mongoose";
+import { PrismaClient } from "../generated/prisma";
 import logger from "../utils/logger";
-
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
-
-const createPrismaClient = (): PrismaClient => {
-  const url = process.env.DATABASE_URL;
-
-  if (!url) {
-    logger.error("❌ DATABASE_URL is missing in .env");
-    throw new Error("DATABASE_URL environment variable is required");
-  }
-
-  // Prisma 6: Simple initialization, URL is read from schema env("DATABASE_URL")
-  return new PrismaClient();
-};
-
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
 
 export const connectDB = async (): Promise<void> => {
   try {
-    await prisma.$connect();
-    logger.info("✅ MongoDB connected via Prisma");
+    const url = process.env.DATABASE_URL;
+
+    if (!url) {
+      logger.error("❌ DATABASE_URL is missing in .env");
+      throw new Error("DATABASE_URL environment variable is required");
+    }
+
+    await mongoose.connect(url);
+    logger.info("✅ MongoDB connected via Mongoose");
   } catch (err) {
     logger.error("❌ Database connection failed", err);
     process.exit(1);
@@ -33,5 +21,36 @@ export const connectDB = async (): Promise<void> => {
 };
 
 export const disconnectDB = async (): Promise<void> => {
-  await prisma.$disconnect();
+  await mongoose.disconnect();
 };
+
+// Prisma client
+export const prisma = new PrismaClient();
+
+// Export all models for convenience
+export {
+  User,
+  Address,
+  Category,
+  Product,
+  CategoryAttribute,
+  CategoryAttributeValue,
+  ProductAttributeValue,
+  Cart,
+  CartItem,
+  Order,
+  OrderItem,
+  Wishlist,
+  Review,
+  Notification,
+  Otp,
+  TempUpdate,
+  Coupon,
+  StaffProfile,
+  AuditLog,
+  FeatureFlag,
+  AppSetting,
+  PaymentLog,
+  HomeBanner,
+  CustomerTracker,
+} from "../models/mongoose";

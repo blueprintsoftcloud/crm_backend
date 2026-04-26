@@ -2,7 +2,7 @@
 // Reads warehouse coordinates from AppSetting table (DB-backed).
 // Falls back to .env / hardcoded Kerala defaults if not yet configured.
 
-import { prisma } from "../config/database";
+import { AppSetting } from "../models/mongoose";
 import { env } from "../config/env";
 
 const DEFAULT_LAT = parseFloat(env.WAREHOUSE_LAT) || 9.9312;
@@ -15,8 +15,8 @@ export interface WarehouseCoords {
 
 export async function getWarehouseCoords(): Promise<WarehouseCoords> {
   const [latSetting, lngSetting] = await Promise.all([
-    prisma.appSetting.findUnique({ where: { key: "WAREHOUSE_LAT" } }),
-    prisma.appSetting.findUnique({ where: { key: "WAREHOUSE_LNG" } }),
+    AppSetting.findOne({ key: "WAREHOUSE_LAT" }),
+    AppSetting.findOne({ key: "WAREHOUSE_LNG" }),
   ]);
 
   return {
@@ -40,7 +40,7 @@ const SHIPPING_DEFAULTS: Record<string, string> = {
 
 export async function getShippingConfigFromDB(): Promise<ShippingConfig> {
   const keys = Object.keys(SHIPPING_DEFAULTS);
-  const settings = await prisma.appSetting.findMany({ where: { key: { in: keys } } });
+  const settings = await AppSetting.find({ key: { $in: keys } });
   const map: Record<string, string> = {};
   for (const s of settings) map[s.key] = s.value;
   return {

@@ -4,7 +4,7 @@
 // Controlled by the PRODUCT_REVIEWS feature flag.
 
 import { Request, Response } from "express";
-import { prisma } from "../config/database";
+import { Review, Product, User } from "../models/mongoose";
 import logger from "../utils/logger";
 
 // ─── Helper: is PRODUCT_REVIEWS feature enabled ───────────────────────────────

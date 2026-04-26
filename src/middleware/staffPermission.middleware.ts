@@ -12,7 +12,7 @@
 // Pair with featureGate() after it so the feature-flag layer still applies.
 
 import { Request, Response, NextFunction } from "express";
-import { prisma } from "../config/database";
+import { User } from "../models/mongoose";
 import { StaffPermission } from "../config/staffPermissions";
 
 export const adminOrStaff = (permission: StaffPermission) => {
