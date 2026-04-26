@@ -27,13 +27,13 @@ export const getPublicBanners = async (req: Request, res: Response) => {
       where.type = type;
     }
 
-    const banners = await prisma.homeBanner.findMany({
+    const banners = (await prisma.homeBanner.findMany({
       where,
       orderBy: [{ type: "asc" }, { sortOrder: "asc" }],
-    });
+    })) || [];
 
     // Return section header settings for all homepage sections
-    const headerSettings = await prisma.appSetting.findMany({
+    const headerSettings = (await prisma.appSetting.findMany({
       where: {
         key: {
           in: [
@@ -44,7 +44,7 @@ export const getPublicBanners = async (req: Request, res: Response) => {
           ],
         },
       },
-    });
+    })) || [];
 
     const headers: Record<string, string> = {};
     for (const s of headerSettings) {

@@ -28,16 +28,10 @@ const DEFAULT_FOOTER_CONFIG = {
 // GET /api/admin/company-settings  — public (invoice pages need it)
 export const getCompanySettings = async (_req: Request, res: Response) => {
   try {
-    const rows = await prisma.appSetting.findMany({
+    const rows = (await prisma.appSetting.findMany({
       where: { key: { in: [...KEYS] } },
-    });
-    const settings: Record<string, string | null> = {
-      COMPANY_NAME: null,
-      COMPANY_TAGLINE: null,
-      COMPANY_LOGO: null,
-      COMPANY_FAVICON: null,
-      ANNOUNCEMENT_BAR: null,
-    };
+    })) || [];
+    const settings: Record<string, string> = {};
     for (const row of rows) {
       settings[row.key] = row.value;
     }
@@ -48,17 +42,26 @@ export const getCompanySettings = async (_req: Request, res: Response) => {
   }
 };
 
+const parseJsonOrDefault = <T>(value: string | undefined, fallback: T): T => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+};
+
 // GET /api/admin/homepage-config  — admin only (hero + footer template config)
 export const getHomepageConfig = async (_req: Request, res: Response) => {
   try {
-    const rows = await prisma.appSetting.findMany({
+    const rows = (await prisma.appSetting.findMany({
       where: { key: { in: ["HERO_CONFIG", "FOOTER_CONFIG"] } },
-    });
+    })) || [];
     const map: Record<string, string> = {};
     for (const row of rows) map[row.key] = row.value;
 
-    const heroConfig = map["HERO_CONFIG"] ? JSON.parse(map["HERO_CONFIG"]) : DEFAULT_HERO_CONFIG;
-    const footerConfig = map["FOOTER_CONFIG"] ? JSON.parse(map["FOOTER_CONFIG"]) : DEFAULT_FOOTER_CONFIG;
+    const heroConfig = parseJsonOrDefault(map["HERO_CONFIG"], DEFAULT_HERO_CONFIG);
+    const footerConfig = parseJsonOrDefault(map["FOOTER_CONFIG"], DEFAULT_FOOTER_CONFIG);
 
     res.status(200).json({ heroConfig, footerConfig });
   } catch (err: any) {
