@@ -37,7 +37,7 @@ export const getWishlist = async (req: Request, res: Response) => {
 
     res.status(200).json({
       message: "Wishlist fetched successfully",
-      items: items.map((i) => i.product),
+      items: items.map((i: any) => i.product),
       count: items.length,
     });
   } catch (err: any) {

@@ -42,17 +42,17 @@ export const getTrackedCustomers = async (_req: Request, res: Response) => {
     const cartIdToUserId: Record<string, string> = {};
     if (cartRows.length > 0) {
       const carts = await prisma.cart.findMany({
-        where: { id: { in: cartRows.map((r) => r.cartId) } },
+        where: { id: { in: cartRows.map((r: any) => r.cartId) } },
         select: { id: true, userId: true },
       });
-      carts.forEach((c) => { cartIdToUserId[c.id] = c.userId; });
+      carts.forEach((c: any) => { cartIdToUserId[c.id] = c.userId; });
     }
 
     const wishlistCountByUser: Record<string, number> = {};
-    wishlistRows.forEach((r) => { wishlistCountByUser[r.userId] = r._count.id; });
+    wishlistRows.forEach((r: any) => { wishlistCountByUser[r.userId] = r._count.id; });
 
     const cartCountByUser: Record<string, number> = {};
-    cartRows.forEach((r) => {
+    cartRows.forEach((r: any) => {
       const uid = cartIdToUserId[r.cartId];
       if (uid) cartCountByUser[uid] = r._count.id;
     });
@@ -68,7 +68,7 @@ export const getTrackedCustomers = async (_req: Request, res: Response) => {
       select: { id: true, username: true, email: true, phone: true, avatar: true, createdAt: true },
     });
 
-    const customers = users.map((u) => ({
+    const customers = users.map((u: any) => ({
       ...u,
       wishlistCount: wishlistCountByUser[u.id] ?? 0,
       cartCount: cartCountByUser[u.id] ?? 0,
@@ -98,7 +98,7 @@ export const getCustomerWishlist = async (req: Request, res: Response) => {
       }),
     ]);
 
-    const items = wishlistItems.map((i) => ({ ...i.product, addedAt: i.createdAt }));
+    const items = wishlistItems.map((i: any) => ({ ...i.product, addedAt: i.createdAt }));
 
     return res.json({ user, items });
   } catch (err: any) {
@@ -120,14 +120,14 @@ export const getCustomerCart = async (req: Request, res: Response) => {
       }),
     ]);
 
-    const items = (cart?.items ?? []).map((ci) => ({
+    const items = (cart?.items ?? []).map((ci: any) => ({
       ...ci.product,
       quantity: ci.quantity,
       cartItemId: ci.id,
     }));
 
     const total = items.reduce(
-      (sum: number, item) => sum + (item.price ?? 0) * item.quantity,
+      (sum: number, item: any) => sum + (item.price ?? 0) * item.quantity,
       0,
     );
 

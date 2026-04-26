@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
-import { FeatureFlag, User, Order } from "../models/mongoose";
-import { Feature } from "../generated/prisma";
+import { FeatureFlag, User, Order, Feature } from "../models/mongoose";
 import logger from "../utils/logger";
 import { createAuditLog } from "../utils/auditLog";
 
@@ -49,10 +48,10 @@ export const FEATURE_LABELS: Record<Feature, string> = {
 export const getFeatureFlags = async (_req: Request, res: Response) => {
   try {
     const flags = await prisma.featureFlag.findMany();
-    const flagMap = Object.fromEntries(flags.map((f) => [f.feature, f.isEnabled]));
+    const flagMap = Object.fromEntries(flags.map((f: any) => [f.feature, f.isEnabled]));
 
     // Always return all features even if some rows are missing in DB
-    const result = ALL_FEATURES.map((feature) => ({
+    const result = ALL_FEATURES.map((feature: Feature) => ({
       feature,
       label: FEATURE_LABELS[feature],
       isEnabled: flagMap[feature] ?? true,

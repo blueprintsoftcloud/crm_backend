@@ -55,10 +55,10 @@ export const getProductReviews = async (req: Request, res: Response) => {
 
     // Aggregate stats
     const total = reviews.length;
-    const avg = total > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / total : 0;
-    const distribution = [5, 4, 3, 2, 1].map((star) => ({
+    const avg = total > 0 ? reviews.reduce((s: number, r: any) => s + r.rating, 0) / total : 0;
+    const distribution = [5, 4, 3, 2, 1].map((star: number) => ({
       star,
-      count: reviews.filter((r) => r.rating === star).length,
+      count: reviews.filter((r: any) => r.rating === star).length,
     }));
 
     return res.json({ reviews, total, avg: Math.round(avg * 10) / 10, distribution });

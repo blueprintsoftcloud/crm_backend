@@ -2,7 +2,10 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 // ───────────────────────────── ENUMS ───────────────────────────────
 
-export const RoleEnum = ['CUSTOMER', 'ADMIN', 'SUPER_ADMIN', 'STAFF'];
+export const RoleEnum = ['CUSTOMER', 'ADMIN', 'SUPER_ADMIN', 'STAFF'] as const;
+export type Role = typeof RoleEnum[number];
+
+export const Role = { CUSTOMER: 'CUSTOMER', ADMIN: 'ADMIN', SUPER_ADMIN: 'SUPER_ADMIN', STAFF: 'STAFF' } as const;
 export const FeatureEnum = [
   'USER_MANAGEMENT',
   'CATEGORY_MANAGEMENT',
@@ -20,11 +23,16 @@ export const FeatureEnum = [
   'PRODUCT_REVIEWS',
   'HOMEPAGE_MANAGEMENT',
   'ADMIN_ORDER',
-];
-export const OrderStatusEnum = ['PROCESSING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-export const PaymentStatusEnum = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'];
-export const PaymentMethodEnum = ['ONLINE', 'POD', 'CASH'];
-export const NotificationTypeEnum = ['NEW_ORDER', 'ORDER_UPDATE', 'PAYMENT_FAILED', 'PAYMENT_SUCCESS', 'LOW_STOCK', 'GENERAL'];
+] as const;
+export type Feature = typeof FeatureEnum[number];
+export const OrderStatusEnum = ['PROCESSING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const;
+export type OrderStatus = typeof OrderStatusEnum[number];
+
+export const PaymentStatusEnum = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'] as const;
+export const PaymentMethodEnum = ['ONLINE', 'POD', 'CASH'] as const;
+
+export const NotificationTypeEnum = ['NEW_ORDER', 'ORDER_UPDATE', 'PAYMENT_FAILED', 'PAYMENT_SUCCESS', 'LOW_STOCK', 'GENERAL'] as const;
+export type NotificationType = typeof NotificationTypeEnum[number];
 export const AttributeTypeEnum = ['SELECT', 'MULTISELECT', 'TEXT', 'NUMBER', 'BOOLEAN'];
 
 // ───────────────────────────── USER ───────────────────────────────

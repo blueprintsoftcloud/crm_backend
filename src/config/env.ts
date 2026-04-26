@@ -19,8 +19,8 @@ const envSchema = z.object({
   ALLOWED_ORIGINS: z.string().default("http://localhost:5173"),
 
   // Database
-  MONGO_URL: z.string().optional(), // Used during migration phase
-  DATABASE_URL: z.string().optional(), // Used after Prisma migration
+  MONGO_URL: z.string().optional(),
+  DATABASE_URL: z.string().optional(),
 
   // JWT
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),

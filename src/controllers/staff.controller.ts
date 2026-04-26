@@ -128,13 +128,13 @@ export const getStaffDashboard = async (_req: Request, res: Response) => {
       orderBy: { _sum: { price: "desc" } },
       take: 5,
     });
-    const productIds = topProductsRaw.map((p) => p.productId).filter(Boolean) as string[];
+    const productIds = topProductsRaw.map((p: any) => p.productId).filter(Boolean) as string[];
     const productDetails = await prisma.product.findMany({
       where: { id: { in: productIds } },
       select: { id: true, name: true, image: true, price: true },
     });
-    const productMap = Object.fromEntries(productDetails.map((p) => [p.id, p]));
-    const topProducts = topProductsRaw.map((p) => ({
+    const productMap = Object.fromEntries(productDetails.map((p: any) => [p.id, p]));
+    const topProducts = topProductsRaw.map((p: any) => ({
       product: p.productId ? productMap[p.productId] ?? null : null,
       totalRevenue: p._sum.price ?? 0,
       totalQuantitySold: p._sum.quantity ?? 0,
@@ -233,7 +233,7 @@ export const createStaff = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user + profile in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const user = await tx.user.create({
         data: {
           username,
@@ -354,7 +354,7 @@ export const updateStaff = async (req: Request, res: Response) => {
       }
     }
 
-    const [updatedUser, updatedProfile] = await prisma.$transaction(async (tx) => {
+    const [updatedUser, updatedProfile] = await prisma.$transaction(async (tx: any) => {
       const userUpdateData: Record<string, any> = {
         ...(username && { username }),
         ...(email && { email }),

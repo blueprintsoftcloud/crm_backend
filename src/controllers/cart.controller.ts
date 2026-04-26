@@ -66,7 +66,7 @@ export const cartAdd = async (req: Request, res: Response) => {
     }
 
     // Upsert cart item
-    const existingItem = cart.items.find((i) => i.productId === productId);
+    const existingItem = cart.items.find((i: any) => i.productId === productId);
     if (existingItem) {
       await prisma.cartItem.update({
         where: { id: existingItem.id },
@@ -122,11 +122,11 @@ export const cartList = async (req: Request, res: Response) => {
 
     // Validate: remove items whose product or category was deleted / deactivated
     const invalidItems = cart.items.filter(
-      (i) => !i.product || !i.product.isActive,
+      (i: any) => !i.product || !i.product.isActive,
     );
     if (invalidItems.length > 0) {
       await prisma.cartItem.deleteMany({
-        where: { id: { in: invalidItems.map((i) => i.id) } },
+        where: { id: { in: invalidItems.map((i: any) => i.id) } },
       });
       cart = await prisma.cart.findUnique({
         where: { userId },
@@ -135,7 +135,7 @@ export const cartList = async (req: Request, res: Response) => {
     }
 
     const totalAmount = computeCartTotal(cart!.items);
-    const totalQuantity = cart!.items.reduce((sum, i) => sum + i.quantity, 0);
+    const totalQuantity = cart!.items.reduce((sum: number, i: any) => sum + i.quantity, 0);
 
     res.status(200).json({
       message: "Cart fetched and validated successfully",
@@ -197,7 +197,7 @@ export const updateProductQuantity = async (req: Request, res: Response) => {
     });
     if (!cart) return res.status(400).json({ message: "Cart not found" });
 
-    const item = cart.items.find((i) => i.productId === productId);
+    const item = cart.items.find((i: any) => i.productId === productId);
     if (!item) return res.status(400).json({ message: "Product not in cart" });
 
     await prisma.cartItem.update({

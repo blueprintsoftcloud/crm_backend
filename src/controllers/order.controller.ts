@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import crypto from "crypto";
-import { User, Order, Cart, Product, PaymentLog, StaffProfile } from "../models/mongoose";
+import { User, Order, Cart, Product, PaymentLog, StaffProfile, Role, Feature, OrderStatus, NotificationType } from "../models/mongoose";
 import razorpay from "../config/razorpay";
 import { calculateShippingWithConfig } from "../services/shipping.service";
 import { env } from "../config/env";
@@ -8,12 +8,6 @@ import logger from "../utils/logger";
 import { transporter, orderStatusEmailTemplate, orderConfirmationEmailTemplate } from "../config/mailer";
 import { createAuditLog } from "../utils/auditLog";
 import { getWarehouseCoords, getShippingConfigFromDB } from "../utils/warehouseSettings";
-import {
-  NotificationType,
-  OrderStatus,
-  PaymentStatus,
-  Role,
-} from "../generated/prisma/client";
 
 // ── Notification Helpers ──────────────────────────────────────────────────────
 /** Fan-out: create one Notification per recipient, push via their private socket room. */
@@ -47,7 +41,7 @@ const getAdminRecipients = async (): Promise<string[]> => {
     where: { role: { in: [Role.ADMIN, Role.SUPER_ADMIN] } },
     select: { id: true },
   });
-  return users.map((u) => u.id);
+  return users.map((u: any) => u.id);
 };
 
 /** Returns ADMIN + SUPER_ADMIN IDs plus active STAFF with the given permission. */
@@ -62,7 +56,7 @@ const getAdminAndStaffRecipients = async (staffPermission: string): Promise<stri
       select: { userId: true },
     }),
   ]);
-  return [...admins.map((u) => u.id), ...staff.map((s) => s.userId)];
+  return [...admins.map((u: any) => u.id), ...staff.map((s: any) => s.userId)];
 };
 
 // ── Stock Helper ───────────────────────────────────────────────────────────────
@@ -93,7 +87,7 @@ export const preCheckout = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    const validItems = cart.items.filter((i) => i.product.stock >= i.quantity);
+    const validItems = cart.items.filter((i: any) => i.product.stock >= i.quantity);
     const outOfStock = cart.items.length - validItems.length;
 
     if (validItems.length === 0) {
@@ -107,8 +101,8 @@ export const preCheckout = async (req: Request, res: Response) => {
     if (outOfStock > 0) {
       // Remove out-of-stock items from cart
       const staleIds = cart.items
-        .filter((i) => i.product.stock < i.quantity)
-        .map((i) => i.id);
+        .filter((i: any) => i.product.stock < i.quantity)
+        .map((i: any) => i.id);
       await prisma.cartItem.deleteMany({ where: { id: { in: staleIds } } });
       return res
         .status(200)
@@ -149,7 +143,7 @@ export const placeOrder = async (req: Request, res: Response) => {
 
     // When Buy Now is used, only process the specified product
     const eligibleItems = buyNowProductId
-      ? cart.items.filter((i) => i.product.id === buyNowProductId)
+      ? cart.items.filter((i: any) => i.product.id === buyNowProductId)
       : cart.items;
 
     if (eligibleItems.length === 0)
@@ -157,7 +151,7 @@ export const placeOrder = async (req: Request, res: Response) => {
 
     // Build order items + subtotal
     let subtotal = 0;
-    const orderItems = eligibleItems.map((item) => {
+    const orderItems = eligibleItems.map((item: any) => {
       subtotal += item.product.price * item.quantity;
       return {
         productId: item.product.id,
@@ -254,7 +248,7 @@ export const placeOrder = async (req: Request, res: Response) => {
         gatewayResponse: { razorpayOrderId: rzpOrder.id, currency: rzpOrder.currency, receipt: rzpOrder.receipt },
         ipAddress: req.ip ?? null,
       },
-    }).catch((e) => logger.warn("PaymentLog create (ORDER_CREATED) failed", e));
+    }).catch((e: any) => logger.warn("PaymentLog create (ORDER_CREATED) failed", e));
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -322,7 +316,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
           gatewayResponse: { razorpayOrderId: razorpay_order_id, razorpayPaymentId: razorpay_payment_id },
           ipAddress: req.ip ?? null,
         },
-      }).catch((e) => logger.warn("PaymentLog create (PAYMENT_SUCCESS) failed", e));
+      }).catch((e: any) => logger.warn("PaymentLog create (PAYMENT_SUCCESS) failed", e));
 
       // Clear only the bought item (Buy Now) or the entire cart (regular checkout)
       if (buyNowProductId) {
@@ -380,7 +374,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
           gatewayResponse: { razorpayOrderId: razorpay_order_id, razorpayPaymentId: razorpay_payment_id, reason: "signature_mismatch" },
           ipAddress: req.ip ?? null,
         },
-      }).catch((e) => logger.warn("PaymentLog create (PAYMENT_FAILED) failed", e));
+      }).catch((e: any) => logger.warn("PaymentLog create (PAYMENT_FAILED) failed", e));
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -426,14 +420,14 @@ export const placeOrderPOD = async (req: Request, res: Response) => {
 
     // When Buy Now is used, only process the specified product
     const eligibleItems = buyNowProductId
-      ? cart.items.filter((i) => i.product.id === buyNowProductId)
+      ? cart.items.filter((i: any) => i.product.id === buyNowProductId)
       : cart.items;
 
     if (eligibleItems.length === 0)
       return res.status(400).json({ message: "Product not found in cart" });
 
     let subtotal = 0;
-    const orderItems = eligibleItems.map((item) => {
+    const orderItems = eligibleItems.map((item: any) => {
       subtotal += item.product.price * item.quantity;
       return {
         productId: item.product.id,
@@ -526,7 +520,7 @@ export const placeOrderPOD = async (req: Request, res: Response) => {
         gatewayResponse: { note: "Pay on Delivery — no gateway transaction" },
         ipAddress: req.ip ?? null,
       },
-    }).catch((e) => logger.warn("PaymentLog create (ORDER_POD) failed", e));
+    }).catch((e: any) => logger.warn("PaymentLog create (ORDER_POD) failed", e));
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -1070,13 +1064,13 @@ export const placeAdminOrder = async (req: Request, res: Response) => {
     // ── 2. Validate + price items ────────────────────────────────────────────
     if (!items?.length) return res.status(400).json({ message: "At least one item is required" });
 
-    const productIds = items.map((i) => i.productId);
+    const productIds = items.map((i: any) => i.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds }, isActive: true },
       select: { id: true, name: true, price: true, stock: true },
     });
 
-    const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+    const productMap = Object.fromEntries(products.map((p: any) => [p.id, p]));
 
     let subtotal = 0;
     const orderItems: Array<{ productId: string; quantity: number; price: number }> = [];
@@ -1133,7 +1127,7 @@ export const placeAdminOrder = async (req: Request, res: Response) => {
         },
         ipAddress: req.ip ?? null,
       },
-    }).catch((e) => logger.warn("PaymentLog (ADMIN_ORDER_PLACED) failed", e));
+    }).catch((e: any) => logger.warn("PaymentLog (ADMIN_ORDER_PLACED) failed", e));
 
     // ── 6. Notifications ─────────────────────────────────────────────────────
     const shortId = order.id.slice(-6);

@@ -6,13 +6,11 @@ import cookieParser from "cookie-parser";
 import path from "path";
 
 import { env } from "./config/env";
+import "./config/prisma";
 import { connectDB } from "./config/database";
 import { errorHandler } from "./middleware/errorHandler.middleware";
 import { generalLimiter } from "./middleware/rateLimit.middleware";
 import initSocket from "./socket/socketManager";
-
-// Import globals
-import "./types/prisma-globals";
 
 // Routes
 import authRoutes from "./routes/auth.routes";
@@ -37,6 +35,10 @@ import homeBannerRoutes from "./routes/homeBanner.routes";
 const app = express();
 const server = http.createServer(app);
 
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 // ── CORS ──────────────────────────────────────────────────────────────────────
 // Reads a comma-separated allowlist from ALLOWED_ORIGINS env var.
 // Example .env: ALLOWED_ORIGINS=https://yourapp.com,https://www.yourapp.com
@@ -59,6 +61,17 @@ app.use(
     credentials: true,
   }),
 );
+
+
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('UNHANDLED REJECTION:', reason);
+  process.exit(1);
+});
 
 // ── Core Middleware ────────────────────────────────────────────────────────────
 // Trust the nginx reverse proxy so that express-rate-limit can read the real

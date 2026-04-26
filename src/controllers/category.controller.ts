@@ -110,7 +110,7 @@ export const categoryDelete = async (req: Request, res: Response) => {
       where: { categoryId: id },
       select: { id: true },
     });
-    const productIds = products.map((p) => p.id);
+    const productIds = products.map((p: any) => p.id);
 
     // 2. Block deletion if any open orders contain products in this category.
     // Silently auto-cancelling paid/confirmed orders on category delete would

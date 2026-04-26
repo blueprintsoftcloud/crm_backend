@@ -49,18 +49,12 @@ export const errorHandler = (
     return;
   }
 
-  // Prisma unique constraint violation (e.g. duplicate email)
-  if ((err as any).code === "P2002") {
-    const fields = (err as any).meta?.target as string[] | undefined;
+  // MongoDB duplicate key error
+  if ((err as any).code === 11000) {
+    const fields = (err as any).keyValue ? Object.keys((err as any).keyValue) : undefined;
     res.status(409).json({
       message: `A record with this ${fields?.join(", ") ?? "value"} already exists.`,
     });
-    return;
-  }
-
-  // Prisma record not found
-  if ((err as any).code === "P2025") {
-    res.status(404).json({ message: "Record not found." });
     return;
   }
 

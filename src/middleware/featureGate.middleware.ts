@@ -8,10 +8,9 @@
 //   - Returns 403 with { message, feature } if the feature is disabled.
 
 import { Request, Response, NextFunction } from "express";
-import { FeatureFlag } from "../models/mongoose";
-import { Feature } from "../generated/prisma";
+import { FeatureFlag, Feature } from "../models/mongoose";
 
-export const featureGate = (feature: string) => {
+export const featureGate = (feature: Feature) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // Super Admin is never blocked by feature flags
     if (req.user?.role === "SUPER_ADMIN") {

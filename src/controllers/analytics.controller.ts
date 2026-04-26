@@ -167,15 +167,15 @@ export const getTopProducts = async (req: Request, res: Response) => {
       take: limit,
     });
 
-    const productIds = items.map((i) => i.productId);
+    const productIds = items.map((i: any) => i.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
       select: { id: true, name: true, price: true, image: true },
     });
 
-    const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+    const productMap = Object.fromEntries(products.map((p: any) => [p.id, p]));
 
-    const result = items.map((item) => ({
+    const result = items.map((item: any) => ({
       product: productMap[item.productId] ?? null,
       totalRevenue: item._sum.price ?? 0,
       totalQuantitySold: item._sum.quantity ?? 0,
@@ -215,8 +215,8 @@ export const getTopCategories = async (_req: Request, res: Response) => {
     }
 
     const result = Object.entries(categoryMap)
-      .map(([id, v]) => ({ id, ...v }))
-      .sort((a, b) => b.revenue - a.revenue)
+      .map(([id, v]: any) => ({ id, ...v }))
+      .sort((a: any, b: any) => b.revenue - a.revenue)
       .slice(0, 8);
 
     res.json(result);
@@ -396,15 +396,15 @@ export const getTopProductsByProfit = async (req: Request, res: Response) => {
       take: limit,
     });
 
-    const productIds = items.map((i) => i.productId);
+    const productIds = items.map((i: any) => i.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
       select: { id: true, name: true, price: true, purchasePrice: true, image: true },
     });
 
-    const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+    const productMap = Object.fromEntries(products.map((p: any) => [p.id, p]));
 
-    const result = items.map((item) => {
+    const result = items.map((item: any) => {
       const p = productMap[item.productId];
       const revenue = item._sum.price ?? 0;
       const qty = item._sum.quantity ?? 0;
@@ -420,7 +420,7 @@ export const getTopProductsByProfit = async (req: Request, res: Response) => {
         grossProfit: profit,
         marginPct: margin,
       };
-    }).sort((a, b) => (b.grossProfit ?? 0) - (a.grossProfit ?? 0));
+    }).sort((a: any, b: any) => (b.grossProfit ?? 0) - (a.grossProfit ?? 0));
 
     res.json(result);
   } catch (err: any) {
