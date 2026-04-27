@@ -35,38 +35,38 @@ const MODEL_MAP: Record<string, any> = {
   address: Address,
   category: Category,
   product: Product,
-  categoryAttribute: CategoryAttribute,
-  categoryAttributeValue: CategoryAttributeValue,
-  productAttributeValue: ProductAttributeValue,
+  categoryattribute: CategoryAttribute,
+  categoryattributevalue: CategoryAttributeValue,
+  productattributevalue: ProductAttributeValue,
   cart: Cart,
-  cartItem: CartItem,
+  cartitem: CartItem,
   order: Order,
-  orderItem: OrderItem,
+  orderitem: OrderItem,
   wishlist: Wishlist,
   review: Review,
   notification: Notification,
   otp: Otp,
-  tempUpdate: TempUpdate,
+  tempupdate: TempUpdate,
   coupon: Coupon,
-  staffProfile: StaffProfile,
-  auditLog: AuditLog,
-  featureFlag: FeatureFlag,
-  appSetting: AppSetting,
-  paymentLog: PaymentLog,
-  homeBanner: HomeBanner,
-  customerTracker: CustomerTracker,
+  staffprofile: StaffProfile,
+  auditlog: AuditLog,
+  featureflag: FeatureFlag,
+  appsetting: AppSetting,
+  paymentlog: PaymentLog,
+  homebanner: HomeBanner,
+  customertracker: CustomerTracker,
   attribute: Attribute,
-  attributeValue: AttributeValue,
-  companySettings: CompanySettings,
-  passwordReset: PasswordReset,
+  attributevalue: AttributeValue,
+  companysettings: CompanySettings,
+  passwordreset: PasswordReset,
 };
 
 const RELATION_MAP: Record<string, Record<string, { localField: string; foreignModel: string; foreignField: string; isArray?: boolean }>> = {
-  cartItem: {
+  cartitem: {
     cart: { localField: 'cartId', foreignModel: 'cart', foreignField: '_id' },
     product: { localField: 'productId', foreignModel: 'product', foreignField: '_id' },
   },
-  orderItem: {
+  orderitem: {
     order: { localField: 'orderId', foreignModel: 'order', foreignField: '_id' },
     product: { localField: 'productId', foreignModel: 'product', foreignField: '_id' },
   },
@@ -74,11 +74,11 @@ const RELATION_MAP: Record<string, Record<string, { localField: string; foreignM
     user: { localField: 'userId', foreignModel: 'user', foreignField: '_id' },
     coupon: { localField: 'couponId', foreignModel: 'coupon', foreignField: '_id' },
     placedByAdmin: { localField: 'placedByAdminId', foreignModel: 'user', foreignField: '_id' },
-    items: { localField: '_id', foreignModel: 'orderItem', foreignField: 'orderId', isArray: true },
+    items: { localField: '_id', foreignModel: 'orderitem', foreignField: 'orderId', isArray: true },
   },
   cart: {
     user: { localField: 'userId', foreignModel: 'user', foreignField: '_id' },
-    items: { localField: '_id', foreignModel: 'cartItem', foreignField: 'cartId', isArray: true },
+    items: { localField: '_id', foreignModel: 'cartitem', foreignField: 'cartId', isArray: true },
   },
   wishlist: {
     user: { localField: 'userId', foreignModel: 'user', foreignField: '_id' },
@@ -88,36 +88,36 @@ const RELATION_MAP: Record<string, Record<string, { localField: string; foreignM
     user: { localField: 'userId', foreignModel: 'user', foreignField: '_id' },
     product: { localField: 'productId', foreignModel: 'product', foreignField: '_id' },
   },
-  paymentLog: {
+  paymentlog: {
     order: { localField: 'orderId', foreignModel: 'order', foreignField: '_id' },
     user: { localField: 'userId', foreignModel: 'user', foreignField: '_id' },
   },
   address: {
     user: { localField: 'userId', foreignModel: 'user', foreignField: '_id' },
   },
-  staffProfile: {
+  staffprofile: {
     user: { localField: 'userId', foreignModel: 'user', foreignField: '_id' },
     managedBy: { localField: 'managedBy', foreignModel: 'user', foreignField: '_id' },
   },
   product: {
     category: { localField: 'categoryId', foreignModel: 'category', foreignField: '_id' },
   },
-  categoryAttribute: {
+  categoryattribute: {
     category: { localField: 'categoryId', foreignModel: 'category', foreignField: '_id' },
   },
-  categoryAttributeValue: {
-    attribute: { localField: 'attributeId', foreignModel: 'categoryAttribute', foreignField: '_id' },
-    value: { localField: 'attributeValueId', foreignModel: 'categoryAttributeValue', foreignField: '_id' },
+  categoryattributevalue: {
+    attribute: { localField: 'attributeId', foreignModel: 'categoryattribute', foreignField: '_id' },
+    value: { localField: 'attributeValueId', foreignModel: 'categoryattributevalue', foreignField: '_id' },
   },
-  productAttributeValue: {
+  productattributevalue: {
     product: { localField: 'productId', foreignModel: 'product', foreignField: '_id' },
-    attribute: { localField: 'attributeId', foreignModel: 'categoryAttribute', foreignField: '_id' },
-    attributeValue: { localField: 'attributeValueId', foreignModel: 'categoryAttributeValue', foreignField: '_id' },
+    attribute: { localField: 'attributeId', foreignModel: 'categoryattribute', foreignField: '_id' },
+    attributeValue: { localField: 'attributeValueId', foreignModel: 'categoryattributevalue', foreignField: '_id' },
   },
-  tempUpdate: {
+  tempupdate: {
     user: { localField: 'userId', foreignModel: 'user', foreignField: '_id' },
   },
-  auditLog: {
+  auditlog: {
     user: { localField: 'userId', foreignModel: 'user', foreignField: '_id' },
   },
   notification: {
