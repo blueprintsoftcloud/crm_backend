@@ -477,15 +477,13 @@ const buildAggregation = async (modelName: string, args: any) => {
   const group: any = { _id: null };
 
   if (args._sum) {
-    group._sum = {};
     for (const [field, enabled] of Object.entries(args._sum)) {
-      if (enabled) group._sum[field] = { $sum: `$${field}` };
+      if (enabled) group[`_sum_${field}`] = { $sum: `$${field}` };
     }
   }
   if (args._count) {
-    group._count = {};
     for (const [field, enabled] of Object.entries(args._count)) {
-      if (enabled) group._count[field] = { $sum: 1 };
+      if (enabled) group[`_count_${field}`] = { $sum: 1 };
     }
   }
 
@@ -494,7 +492,21 @@ const buildAggregation = async (modelName: string, args: any) => {
   }
 
   const result = await model.aggregate(pipeline).exec();
-  return result[0] ?? { _sum: {}, _count: {} };
+  const row = result[0] ?? {};
+  const output = { _sum: {}, _count: {} } as any;
+
+  for (const [key, value] of Object.entries(row)) {
+    if (key.startsWith('_sum_')) {
+      output._sum[key.slice(5)] = value;
+      continue;
+    }
+    if (key.startsWith('_count_')) {
+      output._count[key.slice(7)] = value;
+      continue;
+    }
+  }
+
+  return output;
 };
 
 const buildGroupBy = async (modelName: string, args: any) => {
@@ -515,16 +527,14 @@ const buildGroupBy = async (modelName: string, args: any) => {
   if (args._sum) {
     for (const [field, enabled] of Object.entries(args._sum)) {
       if (enabled) {
-        groupStage._sum = groupStage._sum ?? {};
-        groupStage._sum[field] = { $sum: `$${convertFieldName(field)}` };
+        groupStage[`_sum_${field}`] = { $sum: `$${convertFieldName(field)}` };
       }
     }
   }
   if (args._count) {
     for (const [field, enabled] of Object.entries(args._count)) {
       if (enabled) {
-        groupStage._count = groupStage._count ?? {};
-        groupStage._count[field] = { $sum: 1 };
+        groupStage[`_count_${field}`] = { $sum: 1 };
       }
     }
   }
@@ -537,7 +547,7 @@ const buildGroupBy = async (modelName: string, args: any) => {
       if (key === '_sum' || key === '_count') {
         const sub = value as Record<string, string>;
         for (const [subKey, subValue] of Object.entries(sub)) {
-          const path = `_${key}.${subKey}`;
+          const path = `_${key}_${subKey}`;
           sort[path] = subValue.toLowerCase() === 'desc' ? -1 : 1;
         }
       }
@@ -555,8 +565,18 @@ const buildGroupBy = async (modelName: string, args: any) => {
     } else {
       Object.assign(mapped, row._id);
     }
-    if (row._sum) mapped._sum = row._sum;
-    if (row._count) mapped._count = row._count;
+    mapped._sum = {};
+    mapped._count = {};
+    for (const [key, value] of Object.entries(row)) {
+      if (key.startsWith('_sum_')) {
+        mapped._sum[key.slice(5)] = value;
+      }
+      if (key.startsWith('_count_')) {
+        mapped._count[key.slice(7)] = value;
+      }
+    }
+    if (Object.keys(mapped._sum).length === 0) delete mapped._sum;
+    if (Object.keys(mapped._count).length === 0) delete mapped._count;
     return mapped;
   });
 };
