@@ -13,7 +13,7 @@ import logger from "../utils/logger";
 export const requestProfileUpdate = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { newEmail, newUsername } = req.body;
+    const { newEmail, newUsername, newPhone } = req.body;
 
     if (!newEmail || !newUsername) {
       return res
@@ -31,6 +31,17 @@ export const requestProfileUpdate = async (req: Request, res: Response) => {
         .json({ message: "This email is already taken by another account." });
     }
 
+    if (newPhone) {
+      const existingPhone = await prisma.user.findFirst({
+        where: { phone: String(newPhone), NOT: { id: userId } },
+      });
+      if (existingPhone) {
+        return res
+          .status(400)
+          .json({ message: "This phone number is already taken by another account." });
+      }
+    }
+
     const otpCode = generateOtpCode();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
@@ -40,12 +51,12 @@ export const requestProfileUpdate = async (req: Request, res: Response) => {
       create: {
         userId,
         otp: otpCode,
-        pendingData: { newEmail, newUsername },
+        pendingData: { newEmail, newUsername, newPhone: newPhone ? String(newPhone) : undefined },
         expiresAt,
       },
       update: {
         otp: otpCode,
-        pendingData: { newEmail, newUsername },
+        pendingData: { newEmail, newUsername, newPhone: newPhone ? String(newPhone) : undefined },
         expiresAt,
       },
     });
@@ -90,6 +101,7 @@ export const verifyAndUpdateProfile = async (req: Request, res: Response) => {
     const pending = tempRecord.pendingData as {
       newEmail?: string;
       newUsername?: string;
+      newPhone?: string;
     };
 
     const updatedUser = await prisma.user.update({
@@ -97,8 +109,9 @@ export const verifyAndUpdateProfile = async (req: Request, res: Response) => {
       data: {
         ...(pending.newEmail ? { email: pending.newEmail } : {}),
         ...(pending.newUsername ? { username: pending.newUsername } : {}),
+        ...(pending.newPhone ? { phone: pending.newPhone } : {}),
       },
-      select: { id: true, username: true, email: true, role: true },
+      select: { id: true, username: true, email: true, phone: true, role: true },
     });
 
     await prisma.tempUpdate.delete({ where: { userId } });

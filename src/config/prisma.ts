@@ -158,6 +158,9 @@ const OPERATOR_MAP: Record<string, string> = {
 const isObject = (value: any): value is Record<string, any> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const isObjectIdLike = (value: any) =>
+  value instanceof Types.ObjectId || value?._bsontype === 'ObjectId';
+
 const convertFieldName = (field: string) => (field === 'id' ? '_id' : field);
 
 const convertValue = (field: string, value: any) => {
@@ -382,6 +385,74 @@ const attachRelations = async (modelName: string, docs: any[], include: any) => 
   }
 };
 
+const toSerializableObject = (doc: any) => {
+  if (!doc || typeof doc !== 'object') return doc;
+
+  if (typeof doc.toObject === 'function') {
+    const plain = doc.toObject({
+      virtuals: false,
+      getters: false,
+      versionKey: false,
+    });
+
+    for (const [key, value] of Object.entries(doc)) {
+      if (key === '$__' || key === '_doc' || key === '$isNew' || key.startsWith('$')) {
+        continue;
+      }
+      if (!(key in plain)) {
+        plain[key] = value;
+      }
+    }
+
+    return plain;
+  }
+
+  if (isObject(doc._doc)) {
+    return {
+      ...doc._doc,
+      ...Object.fromEntries(
+        Object.entries(doc).filter(([key]) => key !== '_doc' && !key.startsWith('$'))
+      ),
+    };
+  }
+
+  return doc;
+};
+
+// Convert MongoDB _id field to Prisma-style id field for API responses
+const serializeDocument = (doc: any): any => {
+  if (doc == null) return doc;
+  if (doc instanceof Date) return doc;
+  if (isObjectIdLike(doc)) return doc.toString();
+  if (typeof doc !== 'object') return doc;
+  
+  if (Array.isArray(doc)) {
+    return doc.map((item) => serializeDocument(item));
+  }
+
+  const source = toSerializableObject(doc);
+  const serialized: any = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (key === '_id' && value) {
+      const id = String(value);
+      // Add both _id and id to support different access patterns
+      serialized.id = id;
+      serialized._id = id;
+    } else if (value instanceof Date) {
+      serialized[key] = value;
+    } else if (isObjectIdLike(value)) {
+      serialized[key] = String(value);
+    } else if (Array.isArray(value)) {
+      serialized[key] = value.map((item) => serializeDocument(item));
+    } else if (isObject(value)) {
+      serialized[key] = serializeDocument(value);
+    } else {
+      serialized[key] = value;
+    }
+  }
+  return serialized;
+};
+
 const queryModel = async (modelName: string, args: any = {}, options: { single?: boolean } = {}) => {
   const lowerName = modelName.toLowerCase();
   const model = MODEL_MAP[lowerName];
@@ -403,7 +474,12 @@ const queryModel = async (modelName: string, args: any = {}, options: { single?:
   const items = options.single ? (docs ? [docs] : []) : docs;
   await attachRelations(lowerName, items, include);
 
-  return options.single ? docs : docs;
+  // Serialize documents to convert _id to id
+  const serialized = options.single 
+    ? (docs ? serializeDocument(docs) : null)
+    : (docs ? docs.map(serializeDocument) : []);
+
+  return serialized;
 };
 
 const buildUpdateData = (data: any) => {
@@ -448,7 +524,7 @@ const createDocument = async (modelName: string, data: any) => {
     await OrderItem.insertMany(
       createDocs.map((item: any) => ({ ...item, orderId: order._id })),
     );
-    return order;
+    return serializeDocument(order);
   }
 
   if (lowerName === 'cart' && data?.items?.create) {
@@ -461,10 +537,11 @@ const createDocument = async (modelName: string, data: any) => {
     await CartItem.insertMany(
       createDocs.map((item: any) => ({ ...item, cartId: cart._id })),
     );
-    return cart;
+    return serializeDocument(cart);
   }
 
-  return model.create(data);
+  const created = await model.create(data);
+  return serializeDocument(created);
 };
 
 const buildAggregation = async (modelName: string, args: any) => {
@@ -613,7 +690,8 @@ class PrismaBridge {
 
     const where = await translateWhere(args.where ?? {}, lowerName);
     const updateData = buildUpdateData(args.data);
-    return model.findOneAndUpdate(where, updateData, { new: true }).exec();
+    const updated = await model.findOneAndUpdate(where, updateData, { new: true }).exec();
+    return serializeDocument(updated);
   }
 
   async delete(modelName: string, args: any) {
@@ -621,7 +699,8 @@ class PrismaBridge {
     const model = MODEL_MAP[lowerName];
     if (!model) throw new Error(`Unknown model: ${modelName}`);
     const where = await translateWhere(args.where ?? {}, lowerName);
-    return model.findOneAndDelete(where).exec();
+    const deleted = await model.findOneAndDelete(where).exec();
+    return serializeDocument(deleted);
   }
 
   async deleteMany(modelName: string, args: any) {
@@ -649,7 +728,7 @@ class PrismaBridge {
     const updateData = buildUpdateData(args.update);
     const options = { new: true, upsert: true, setDefaultsOnInsert: true };
     const result = await model.findOneAndUpdate(where, updateData, options).exec();
-    return result;
+    return serializeDocument(result);
   }
 
   async aggregate(modelName: string, args: any) {

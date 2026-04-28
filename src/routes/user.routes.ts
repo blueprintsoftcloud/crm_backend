@@ -11,6 +11,10 @@ import {
   getProductFilters,
 } from "../controllers/product-user.controller";
 import {
+  requestProfileUpdate,
+  verifyAndUpdateProfile,
+} from "../controllers/updateProfile.controller";
+import {
   getWishlist,
   addToWishlist,
   removeFromWishlist,
@@ -33,6 +37,8 @@ router.get("/products/search", searchProducts);
 
 // Authenticated user
 router.get("/profile", authMiddleware, getProfile);
+router.post("/profile/request-update", authMiddleware, requestProfileUpdate);
+router.post("/profile/verify-update", authMiddleware, verifyAndUpdateProfile);
 router.post("/:id/reviews", authMiddleware, validate(reviewSchema), createProductReview);
 
 // Wishlist
@@ -40,7 +46,5 @@ router.get("/wishlist", authMiddleware, getWishlist);
 router.post("/wishlist", authMiddleware, addToWishlist);
 router.delete("/wishlist/:productId", authMiddleware, removeFromWishlist);
 router.delete("/wishlist", authMiddleware, clearWishlist);
-
-// Note: profile-update routes are added once updateProfile.controller.ts is migrated.
 
 export default router;

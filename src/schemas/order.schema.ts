@@ -11,6 +11,7 @@ export const verifyPaymentSchema = z.object({
   razorpay_signature: z
     .string({ required_error: "Razorpay signature is required" })
     .min(1),
+  buyNowProductId: z.string().optional(),
 });
 
 export const updateOrderStatusSchema = z.object({

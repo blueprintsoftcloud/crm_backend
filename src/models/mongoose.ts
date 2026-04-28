@@ -610,9 +610,15 @@ export interface IPaymentLog extends Document {
   userId: mongoose.Types.ObjectId;
   orderId: mongoose.Types.ObjectId;
   amount: number;
-  status: string;
+  event?: string;
+  paymentStatus: string;
   paymentMethod: string;
+  razorpayOrderId?: string;
   razorpayPaymentId?: string;
+  razorpaySignature?: string;
+  signatureValid?: boolean | null;
+  gatewayResponse?: any;
+  ipAddress?: string;
   notes?: string;
   createdAt: Date;
 }
@@ -622,9 +628,15 @@ const PaymentLogSchema = new Schema<IPaymentLog>(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
     amount: { type: Number, required: true },
-    status: { type: String, enum: PaymentStatusEnum, required: true },
+    event: String,
+    paymentStatus: { type: String, enum: PaymentStatusEnum, required: true },
     paymentMethod: { type: String, enum: PaymentMethodEnum, required: true },
+    razorpayOrderId: String,
     razorpayPaymentId: String,
+    razorpaySignature: String,
+    signatureValid: Schema.Types.Mixed,
+    gatewayResponse: Schema.Types.Mixed,
+    ipAddress: String,
     notes: String,
   },
   { timestamps: true }
@@ -635,9 +647,12 @@ export const PaymentLog = mongoose.model<IPaymentLog>('PaymentLog', PaymentLogSc
 // ───────────────────────────── HOME BANNER ───────────────────────────────
 
 export interface IHomeBanner extends Document {
+  type?: string;
   title?: string;
   image: string;
   link?: string;
+  discount?: string;
+  description?: string;
   isActive: boolean;
   sortOrder: number;
   createdAt: Date;
@@ -646,9 +661,12 @@ export interface IHomeBanner extends Document {
 
 const HomeBannerSchema = new Schema<IHomeBanner>(
   {
+    type: String,
     title: String,
     image: { type: String, required: true },
     link: String,
+    discount: String,
+    description: String,
     isActive: { type: Boolean, default: true },
     sortOrder: { type: Number, default: 0 },
   },

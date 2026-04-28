@@ -66,7 +66,7 @@ export const cartAdd = async (req: Request, res: Response) => {
     }
 
     // Upsert cart item
-    const existingItem = cart.items.find((i: any) => i.productId === productId);
+    const existingItem = cart.items.find((i: any) => String(i.productId) === String(productId));
     if (existingItem) {
       await prisma.cartItem.update({
         where: { id: existingItem.id },
@@ -197,7 +197,7 @@ export const updateProductQuantity = async (req: Request, res: Response) => {
     });
     if (!cart) return res.status(400).json({ message: "Cart not found" });
 
-    const item = cart.items.find((i: any) => i.productId === productId);
+    const item = cart.items.find((i: any) => String(i.productId) === String(productId));
     if (!item) return res.status(400).json({ message: "Product not in cart" });
 
     await prisma.cartItem.update({

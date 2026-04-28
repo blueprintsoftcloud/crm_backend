@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Types } from "mongoose";
 import { Product, Category, Review } from "../models/mongoose";
 import logger from "../utils/logger";
 
@@ -213,6 +214,10 @@ export const productCard = async (req: Request, res: Response) => {
   try {
     const productId = req.params.productId as string;
 
+    if (!Types.ObjectId.isValid(productId)) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
@@ -243,7 +248,7 @@ export const productCard = async (req: Request, res: Response) => {
     const relatedProducts = await prisma.product.findMany({
       where: {
         categoryId: product.categoryId,
-        id: { not: product.id },
+        id: { notIn: [product.id] },
         isActive: true,
       },
       select: {
@@ -483,7 +488,7 @@ export const getProfile = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, username: true, email: true },
+      select: { id: true, username: true, email: true, phone: true, role: true },
     });
     res
       .status(200)

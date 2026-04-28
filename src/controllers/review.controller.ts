@@ -79,8 +79,8 @@ export const getMyReview = async (req: Request, res: Response) => {
     const productId = String(req.params.productId);
     const userId = req.user!.id;
 
-    const review = await prisma.review.findUnique({
-      where: { userId_productId: { userId, productId } },
+    const review = await prisma.review.findFirst({
+      where: { userId, productId },
     });
 
     // Also check if eligible to review (DELIVERED order with this product)
@@ -142,8 +142,8 @@ export const createReview = async (req: Request, res: Response) => {
     }
 
     // One review per customer per product
-    const existing = await prisma.review.findUnique({
-      where: { userId_productId: { userId, productId } },
+    const existing = await prisma.review.findFirst({
+      where: { userId, productId },
     });
     if (existing) {
       return res.status(409).json({ message: "You have already reviewed this product." });

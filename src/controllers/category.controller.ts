@@ -10,6 +10,7 @@ export const categoryList = async (req: Request, res: Response) => {
     const list = await prisma.category.findMany({
       orderBy: { name: "asc" },
     });
+    console.log("Categories from DB:", list); // Debug log
     res.json({ list });
   } catch (err: any) {
     logger.error("categoryList error", err);

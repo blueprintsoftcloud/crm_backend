@@ -1,18 +1,19 @@
 import { Request, Response } from "express";
-import { Wishlist, Product } from "../models/mongoose";
+import { Types } from "mongoose";
 import logger from "../utils/logger";
 
-// Helper: emit customer-wishlist-update to admin room via socket
 const emitWishlistUpdate = (req: Request, userId: string, wishlistCount: number) => {
   try {
     const io = req.app.get("socketio");
     if (io) {
       io.to("admin-room").emit("customer-wishlist-update", { userId, wishlistCount });
     }
-  } catch { /* non-critical */ }
+  } catch {
+    // Socket updates are non-critical for the customer request.
+  }
 };
 
-// GET /api/user/wishlist  (authenticated)
+// GET /api/user/wishlist (authenticated)
 export const getWishlist = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
@@ -37,7 +38,7 @@ export const getWishlist = async (req: Request, res: Response) => {
 
     res.status(200).json({
       message: "Wishlist fetched successfully",
-      items: items.map((i: any) => i.product),
+      items: items.map((i: any) => i.product).filter(Boolean),
       count: items.length,
     });
   } catch (err: any) {
@@ -46,7 +47,7 @@ export const getWishlist = async (req: Request, res: Response) => {
   }
 };
 
-// POST /api/user/wishlist  (authenticated)
+// POST /api/user/wishlist (authenticated)
 export const addToWishlist = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
@@ -56,28 +57,42 @@ export const addToWishlist = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "productId is required" });
     }
 
+    if (!Types.ObjectId.isValid(productId)) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
     const product = await prisma.product.findUnique({
       where: { id: productId },
+      select: { id: true },
     });
+
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // Upsert — idempotent, duplicate is no-op
-    await prisma.wishlist.upsert({
-      where: { userId_productId: { userId, productId } },
-      create: { userId, productId },
-      update: {}, // already exists — no change needed
+    const existing = await prisma.wishlist.findFirst({
+      where: { userId, productId },
+      select: { id: true },
     });
+
+    if (!existing) {
+      try {
+        await prisma.wishlist.create({
+          data: { userId, productId },
+        });
+      } catch (err: any) {
+        if (err?.code !== 11000) {
+          throw err;
+        }
+      }
+    }
 
     const count = await prisma.wishlist.count({ where: { userId } });
 
-    res
-      .status(200)
-      .json({
-        message: "Product added to wishlist successfully",
-        wishlistCount: count,
-      });
+    res.status(200).json({
+      message: "Product added to wishlist successfully",
+      wishlistCount: count,
+    });
     emitWishlistUpdate(req, userId, count);
   } catch (err: any) {
     logger.error("addToWishlist error", err);
@@ -85,7 +100,7 @@ export const addToWishlist = async (req: Request, res: Response) => {
   }
 };
 
-// DELETE /api/user/wishlist/:productId  (authenticated)
+// DELETE /api/user/wishlist/:productId (authenticated)
 export const removeFromWishlist = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
@@ -95,12 +110,10 @@ export const removeFromWishlist = async (req: Request, res: Response) => {
 
     const count = await prisma.wishlist.count({ where: { userId } });
 
-    res
-      .status(200)
-      .json({
-        message: "Product removed from wishlist successfully",
-        wishlistCount: count,
-      });
+    res.status(200).json({
+      message: "Product removed from wishlist successfully",
+      wishlistCount: count,
+    });
     emitWishlistUpdate(req, userId, count);
   } catch (err: any) {
     logger.error("removeFromWishlist error", err);
@@ -108,16 +121,14 @@ export const removeFromWishlist = async (req: Request, res: Response) => {
   }
 };
 
-// DELETE /api/user/wishlist  (authenticated)
+// DELETE /api/user/wishlist (authenticated)
 export const clearWishlist = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
 
     await prisma.wishlist.deleteMany({ where: { userId } });
 
-    res
-      .status(200)
-      .json({ message: "Wishlist cleared successfully", wishlistCount: 0 });
+    res.status(200).json({ message: "Wishlist cleared successfully", wishlistCount: 0 });
   } catch (err: any) {
     logger.error("clearWishlist error", err);
     res.status(500).json({ message: "Error clearing wishlist" });
